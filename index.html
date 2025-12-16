@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AutoKorea - Автомобили из Кореи</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Заголовок -->
+        <header class="header">
+            <h1>🚗 AutoKorea</h1>
+            <p class="subtitle">Подбор автомобилей из Кореи</p>
+            <div class="header-controls">
+                <select id="currencySelect" class="currency-select">
+                    <option value="USD">💵 USD</option>
+                    <option value="RUB">₽ RUB</option>
+                    <option value="EUR">€ EUR</option>
+                    <option value="KRW">₩ KRW</option>
+                </select>
+                <div id="closeBtn" class="close-btn" style="display: none;">✕ Закрыть</div>
+            </div>
+        </header>
+
+        <!-- Категории -->
+        <section class="categories-section">
+            <div class="categories-grid" id="categoriesGrid">
+                <button class="category-btn" data-category="premium">
+                    <span class="category-icon">🚗</span>
+                    <span class="category-text">Премиум</span>
+                </button>
+                <button class="category-btn" data-category="family">
+                    <span class="category-icon">👨‍👩‍👧‍👦</span>
+                    <span class="category-text">Семейные</span>
+                </button>
+                <button class="category-btn" data-category="business">
+                    <span class="category-icon">💼</span>
+                    <span class="category-text">Бизнес</span>
+                </button>
+                <button class="category-btn" data-category="deal">
+                    <span class="category-icon">💰</span>
+                    <span class="category-text">Выгодные</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Фильтры -->
+        <section class="filters-section">
+            <div class="filters-container">
+                <select id="brandFilter" class="filter-select">
+                    <option value="">Все марки</option>
+                    <option value="Hyundai">Hyundai</option>
+                    <option value="Kia">Kia</option>
+                    <option value="Genesis">Genesis</option>
+                </select>
+
+                <div class="filter-row">
+                    <input type="number" id="yearFrom" class="filter-input" placeholder="Год от" min="2000" max="2024">
+                    <input type="number" id="yearTo" class="filter-input" placeholder="Год до" min="2000" max="2024">
+                </div>
+
+                <div class="filter-row">
+                    <input type="number" id="priceFrom" class="filter-input" placeholder="Цена от" min="0">
+                    <input type="number" id="priceTo" class="filter-input" placeholder="Цена до" min="0">
+                </div>
+
+                <button id="applyFilters" class="apply-btn">Показать</button>
+                <button id="resetFilters" class="reset-btn">Сбросить</button>
+            </div>
+        </section>
+
+        <!-- Результаты -->
+        <section class="results-section">
+            <div class="results-header">
+                <h2 id="resultsTitle">Все автомобили</h2>
+                <span id="resultsCount" class="results-count">0</span>
+            </div>
+            <div class="cars-grid" id="carsGrid">
+                <!-- Карточки автомобилей будут добавлены через JavaScript -->
+            </div>
+            <div id="noResults" class="no-results" style="display: none;">
+                <p>Автомобили не найдены</p>
+                <p class="no-results-hint">Попробуйте изменить фильтры</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

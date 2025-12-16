@@ -1,0 +1,522 @@
+// Данные автомобилей (имитация будущего API)
+const carsData = [
+    {
+        id: 1,
+        category: 'premium',
+        brand: 'Genesis',
+        model: 'G90',
+        year: 2023,
+        price: 85000,
+        mileage: 15000,
+        transmission: 'Автомат',
+        fuel: 'Бензин',
+        description: 'Флагманский седан с максимальной комплектацией'
+    },
+    {
+        id: 2,
+        category: 'premium',
+        brand: 'Genesis',
+        model: 'GV80',
+        year: 2022,
+        price: 72000,
+        mileage: 25000,
+        transmission: 'Автомат',
+        fuel: 'Бензин',
+        description: 'Премиальный кроссовер с полным приводом'
+    },
+    {
+        id: 3,
+        category: 'family',
+        brand: 'Hyundai',
+        model: 'Tucson',
+        year: 2023,
+        price: 32000,
+        mileage: 12000,
+        transmission: 'Автомат',
+        fuel: 'Гибрид',
+        description: 'Семейный кроссовер с экономичным двигателем'
+    },
+    {
+        id: 4,
+        category: 'family',
+        brand: 'Kia',
+        model: 'Sorento',
+        year: 2022,
+        price: 38000,
+        mileage: 20000,
+        transmission: 'Автомат',
+        fuel: 'Дизель',
+        description: 'Семизместный кроссовер для большой семьи'
+    },
+    {
+        id: 5,
+        category: 'family',
+        brand: 'Hyundai',
+        model: 'Santa Fe',
+        year: 2023,
+        price: 35000,
+        mileage: 18000,
+        transmission: 'Автомат',
+        fuel: 'Гибрид',
+        description: 'Просторный семейный внедорожник'
+    },
+    {
+        id: 6,
+        category: 'business',
+        brand: 'Genesis',
+        model: 'G80',
+        year: 2023,
+        price: 55000,
+        mileage: 10000,
+        transmission: 'Автомат',
+        fuel: 'Бензин',
+        description: 'Бизнес-седан премиум-класса'
+    },
+    {
+        id: 7,
+        category: 'business',
+        brand: 'Hyundai',
+        model: 'Sonata',
+        year: 2022,
+        price: 28000,
+        mileage: 22000,
+        transmission: 'Автомат',
+        fuel: 'Гибрид',
+        description: 'Современный бизнес-седан'
+    },
+    {
+        id: 8,
+        category: 'deal',
+        brand: 'Kia',
+        model: 'Rio',
+        year: 2021,
+        price: 15000,
+        mileage: 35000,
+        transmission: 'Механика',
+        fuel: 'Бензин',
+        description: 'Экономичный компактный седан'
+    },
+    {
+        id: 9,
+        category: 'deal',
+        brand: 'Hyundai',
+        model: 'Elantra',
+        year: 2021,
+        price: 18000,
+        mileage: 30000,
+        transmission: 'Автомат',
+        fuel: 'Бензин',
+        description: 'Надежный седан по выгодной цене'
+    },
+    {
+        id: 10,
+        category: 'deal',
+        brand: 'Kia',
+        model: 'Cerato',
+        year: 2020,
+        price: 14000,
+        mileage: 40000,
+        transmission: 'Автомат',
+        fuel: 'Бензин',
+        description: 'Отличное соотношение цена-качество'
+    }
+];
+
+// Курсы валют (относительно USD)
+const exchangeRates = {
+    USD: 1,
+    RUB: 95,      // 1 USD = 95 RUB
+    EUR: 0.92,    // 1 USD = 0.92 EUR
+    KRW: 1320     // 1 USD = 1320 KRW
+};
+
+// Символы валют
+const currencySymbols = {
+    USD: '$',
+    RUB: '₽',
+    EUR: '€',
+    KRW: '₩'
+};
+
+// Форматы отображения цен
+const currencyFormats = {
+    USD: (value) => value.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+    RUB: (value) => value.toLocaleString('ru-RU', { maximumFractionDigits: 0 }),
+    EUR: (value) => value.toLocaleString('de-DE', { maximumFractionDigits: 0 }),
+    KRW: (value) => value.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
+};
+
+// Состояние приложения
+let currentCategory = null;
+let filteredCars = [...carsData];
+let currentCurrency = 'USD';
+
+// Инициализация Telegram Web App
+function initTelegramWebApp() {
+    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+        // Расширяем на весь экран в Telegram
+        Telegram.WebApp.expand();
+        
+        // Настраиваем тему
+        Telegram.WebApp.ready();
+        
+        // Применяем тему Telegram
+        const theme = Telegram.WebApp.themeParams;
+        if (theme.bg_color) {
+            document.documentElement.style.setProperty('--bg-color', theme.bg_color);
+        }
+        if (theme.text_color) {
+            document.documentElement.style.setProperty('--text-color', theme.text_color);
+        }
+        
+        console.log('Telegram Web App инициализирован');
+    } else {
+        // Если открыто не в Telegram, показываем кнопку закрытия
+        const closeBtn = document.getElementById('closeBtn');
+        if (closeBtn) {
+            closeBtn.style.display = 'block';
+            closeBtn.addEventListener('click', () => {
+                if (confirm('Закрыть приложение?')) {
+                    window.close();
+                }
+            });
+        }
+        console.log('Приложение открыто в браузере');
+    }
+}
+
+// Конвертация цены из USD в выбранную валюту
+function convertPrice(priceUSD, currency) {
+    return priceUSD * exchangeRates[currency];
+}
+
+// Форматирование цены для отображения
+function formatPrice(priceUSD, currency) {
+    const convertedPrice = convertPrice(priceUSD, currency);
+    const symbol = currencySymbols[currency];
+    const formatted = currencyFormats[currency](convertedPrice);
+    return `${symbol}${formatted}`;
+}
+
+// Рендеринг карточек автомобилей
+function renderCars(cars) {
+    const carsGrid = document.getElementById('carsGrid');
+    const noResults = document.getElementById('noResults');
+    const resultsCount = document.getElementById('resultsCount');
+    
+    if (!carsGrid) return;
+    
+    // Обновляем счетчик
+    if (resultsCount) {
+        resultsCount.textContent = cars.length;
+    }
+    
+    // Очищаем сетку
+    carsGrid.innerHTML = '';
+    
+    if (cars.length === 0) {
+        if (noResults) {
+            noResults.style.display = 'block';
+        }
+        return;
+    }
+    
+    if (noResults) {
+        noResults.style.display = 'none';
+    }
+    
+    // Создаем карточки с анимацией
+    cars.forEach((car, index) => {
+        const card = document.createElement('div');
+        card.className = 'car-card';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        const formattedPrice = formatPrice(car.price, currentCurrency);
+        
+        card.innerHTML = `
+            <div class="car-image"></div>
+            <div class="car-info">
+                <div class="car-title">${car.brand} ${car.model}</div>
+                <div class="car-year">${car.year} год</div>
+                <div class="car-price">${formattedPrice}</div>
+                <div class="car-specs">
+                    <div class="car-spec-item">
+                        <span>📏</span>
+                        <span>${car.mileage.toLocaleString()} км</span>
+                    </div>
+                    <div class="car-spec-item">
+                        <span>⚙️</span>
+                        <span>${car.transmission}</span>
+                    </div>
+                    <div class="car-spec-item">
+                        <span>⛽</span>
+                        <span>${car.fuel}</span>
+                    </div>
+                </div>
+                <button class="contact-btn" onclick="handleContact(${car.id})">
+                    Связаться по этой машине
+                </button>
+            </div>
+        `;
+        
+        carsGrid.appendChild(card);
+        
+        // Анимация появления с задержкой
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+}
+
+// Обработка нажатия на категорию
+function handleCategoryClick(category) {
+    // Убираем активный класс со всех кнопок
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Если выбрана та же категория, снимаем фильтр
+    if (currentCategory === category) {
+        currentCategory = null;
+        applyFilters();
+        return;
+    }
+    
+    // Устанавливаем новую категорию
+    currentCategory = category;
+    
+    // Добавляем активный класс к выбранной кнопке
+    const clickedBtn = document.querySelector(`[data-category="${category}"]`);
+    if (clickedBtn) {
+        clickedBtn.classList.add('active');
+    }
+    
+    // Применяем фильтры
+    applyFilters();
+}
+
+// Применение фильтров
+function applyFilters() {
+    const brandFilter = document.getElementById('brandFilter')?.value || '';
+    const yearFrom = parseInt(document.getElementById('yearFrom')?.value) || 0;
+    const yearTo = parseInt(document.getElementById('yearTo')?.value) || 9999;
+    const priceFromInput = parseFloat(document.getElementById('priceFrom')?.value) || 0;
+    const priceToInput = parseFloat(document.getElementById('priceTo')?.value) || 999999999;
+    
+    // Конвертируем введенные цены из текущей валюты в USD для сравнения
+    const priceFromUSD = priceFromInput / exchangeRates[currentCurrency];
+    const priceToUSD = priceToInput / exchangeRates[currentCurrency];
+    
+    // Фильтруем автомобили
+    filteredCars = carsData.filter(car => {
+        // Фильтр по категории
+        if (currentCategory && car.category !== currentCategory) {
+            return false;
+        }
+        
+        // Фильтр по марке
+        if (brandFilter && car.brand !== brandFilter) {
+            return false;
+        }
+        
+        // Фильтр по году
+        if (car.year < yearFrom || car.year > yearTo) {
+            return false;
+        }
+        
+        // Фильтр по цене (сравниваем в USD)
+        if (car.price < priceFromUSD || car.price > priceToUSD) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Обновляем заголовок результатов
+    updateResultsTitle();
+    
+    // Обновляем плейсхолдеры фильтров цен
+    updatePricePlaceholders();
+    
+    // Плавная прокрутка к результатам
+    const resultsSection = document.querySelector('.results-section');
+    if (resultsSection) {
+        setTimeout(() => {
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+    
+    // Рендерим отфильтрованные автомобили
+    renderCars(filteredCars);
+}
+
+// Обновление заголовка результатов
+function updateResultsTitle() {
+    const resultsTitle = document.getElementById('resultsTitle');
+    if (!resultsTitle) return;
+    
+    const categoryNames = {
+        'premium': 'Премиум',
+        'family': 'Семейные',
+        'business': 'Бизнес',
+        'deal': 'Выгодные'
+    };
+    
+    if (currentCategory) {
+        resultsTitle.textContent = `Автомобили: ${categoryNames[currentCategory]}`;
+    } else {
+        resultsTitle.textContent = 'Все автомобили';
+    }
+}
+
+// Сброс фильтров
+function resetFilters() {
+    currentCategory = null;
+    
+    // Сбрасываем активные классы категорий
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Сбрасываем значения фильтров
+    document.getElementById('brandFilter').value = '';
+    document.getElementById('yearFrom').value = '';
+    document.getElementById('yearTo').value = '';
+    document.getElementById('priceFrom').value = '';
+    document.getElementById('priceTo').value = '';
+    
+    // Применяем фильтры (показываем все)
+    applyFilters();
+}
+
+// Обновление плейсхолдеров фильтров цен
+function updatePricePlaceholders() {
+    const priceFrom = document.getElementById('priceFrom');
+    const priceTo = document.getElementById('priceTo');
+    const currencySymbol = currencySymbols[currentCurrency];
+    
+    if (priceFrom) {
+        priceFrom.placeholder = `Цена от (${currencySymbol})`;
+    }
+    if (priceTo) {
+        priceTo.placeholder = `Цена до (${currencySymbol})`;
+    }
+}
+
+// Обработка изменения валюты
+function handleCurrencyChange() {
+    const currencySelect = document.getElementById('currencySelect');
+    if (!currencySelect) return;
+    
+    currentCurrency = currencySelect.value;
+    
+    // Обновляем плейсхолдеры фильтров
+    updatePricePlaceholders();
+    
+    // Перерисовываем карточки с новыми ценами
+    renderCars(filteredCars);
+}
+
+// Обработка контакта по автомобилю
+function handleContact(carId) {
+    const car = carsData.find(c => c.id === carId);
+    if (!car) return;
+    
+    const formattedPrice = formatPrice(car.price, currentCurrency);
+    
+    // Запрашиваем телефон у пользователя
+    const phone = prompt(
+        `Связаться по автомобилю:\n\n` +
+        `${car.brand} ${car.model} (${car.year})\n` +
+        `Цена: ${formattedPrice}\n` +
+        `($${car.price.toLocaleString()} USD)\n\n` +
+        `Введите ваш номер телефона:`,
+        '+7'
+    );
+    
+    if (phone) {
+        // Имитация отправки заявки (вывод в консоль)
+        const requestData = {
+            carId: car.id,
+            car: `${car.brand} ${car.model} (${car.year})`,
+            price: car.price,
+            priceCurrency: currentCurrency,
+            priceFormatted: formattedPrice,
+            phone: phone,
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log('Заявка на автомобиль:', requestData);
+        
+        // В реальном приложении здесь был бы запрос к API
+        // fetch('/api/requests', { method: 'POST', body: JSON.stringify(requestData) });
+        
+        alert('Спасибо! Ваша заявка принята. Мы свяжемся с вами в ближайшее время.');
+        
+        // Если в Telegram, можно использовать Telegram.WebApp.sendData()
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            Telegram.WebApp.sendData(JSON.stringify(requestData));
+        }
+    }
+}
+
+// Инициализация приложения
+function init() {
+    // Инициализируем Telegram Web App
+    initTelegramWebApp();
+    
+    // Назначаем обработчики категорий
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const category = btn.getAttribute('data-category');
+            handleCategoryClick(category);
+        });
+    });
+    
+    // Назначаем обработчик кнопки "Показать"
+    const applyBtn = document.getElementById('applyFilters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', applyFilters);
+    }
+    
+    // Назначаем обработчик кнопки "Сбросить"
+    const resetBtn = document.getElementById('resetFilters');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetFilters);
+    }
+    
+    // Назначаем обработчик изменения валюты
+    const currencySelect = document.getElementById('currencySelect');
+    if (currencySelect) {
+        currencySelect.addEventListener('change', handleCurrencyChange);
+    }
+    
+    // Применяем Enter в полях фильтров
+    ['yearFrom', 'yearTo', 'priceFrom', 'priceTo'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+        }
+    });
+    
+    // Обновляем плейсхолдеры цен при инициализации
+    updatePricePlaceholders();
+    
+    // Первоначальная загрузка всех автомобилей
+    renderCars(carsData);
+}
+
+// Запуск приложения после загрузки DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
