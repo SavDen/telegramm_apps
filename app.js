@@ -240,7 +240,7 @@ function renderCars(cars) {
             <div class="car-info">
                 <div class="car-title">${car.brand} ${car.model}</div>
                 <div class="car-year">${car.year} год</div>
-                <div class="car-price">${formattedPrice}</div>
+                <div class="car-price ${car.category === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
                 <div class="car-specs">
                     <div class="car-spec-item">
                         <span>📏</span>
@@ -459,7 +459,14 @@ function openCarModal(carId) {
     // Заполняем модальное окно данными
     document.getElementById('modalCarTitle').textContent = `${car.brand} ${car.model}`;
     document.getElementById('modalCarYear').textContent = `${car.year} год`;
-    document.getElementById('modalCarPrice').textContent = formattedPrice;
+    const modalPriceElement = document.getElementById('modalCarPrice');
+    modalPriceElement.textContent = formattedPrice;
+    // Добавляем класс для зеленого цвета, если категория "deal"
+    if (car.category === 'deal') {
+        modalPriceElement.classList.add('car-price-deal');
+    } else {
+        modalPriceElement.classList.remove('car-price-deal');
+    }
     document.getElementById('modalCarDescription').textContent = car.description;
     document.getElementById('modalCarMileage').textContent = `${car.mileage.toLocaleString()} км`;
     document.getElementById('modalCarTransmission').textContent = car.transmission;
