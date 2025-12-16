@@ -231,6 +231,7 @@ function renderCars(cars) {
         card.className = 'car-card';
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
+        card.style.cursor = 'pointer';
         
         const formattedPrice = formatPrice(car.price, currentCurrency);
         
@@ -254,11 +255,31 @@ function renderCars(cars) {
                         <span>${car.fuel}</span>
                     </div>
                 </div>
-                <button class="contact-btn" onclick="handleContact(${car.id})">
-                    Связаться по этой машине
-                </button>
+                <div class="car-question-section">
+                    <textarea 
+                        class="car-question-input" 
+                        id="question-${car.id}" 
+                        placeholder="Задайте вопрос о машине..."
+                        rows="2"
+                        onclick="event.stopPropagation();"
+                    ></textarea>
+                    <button 
+                        class="contact-btn" 
+                        onclick="event.stopPropagation(); handleContact(${car.id})"
+                    >
+                        Связаться по этой машине
+                    </button>
+                </div>
             </div>
         `;
+        
+        // Обработчик клика на карточку (но не на кнопку)
+        card.addEventListener('click', (e) => {
+            // Проверяем, что клик не был на кнопке
+            if (!e.target.closest('.contact-btn')) {
+                openCarModal(car.id);
+            }
+        });
         
         carsGrid.appendChild(card);
         
@@ -420,45 +441,172 @@ function handleCurrencyChange() {
     renderCars(filteredCars);
 }
 
-// Обработка контакта по автомобилю
-function handleContact(carId) {
+// Открытие модального окна с детальной информацией
+function openCarModal(carId) {
     const car = carsData.find(c => c.id === carId);
     if (!car) return;
     
+    const modal = document.getElementById('carModal');
+    if (!modal) return;
+    
+    const formattedPrice = formatPrice(car.price, currentCurrency);
+    const categoryNames = {
+        'premium': 'Премиум',
+        'family': 'Семейные',
+        'business': 'Бизнес',
+        'deal': 'Выгодные'
+    };
+    
+    // Заполняем модальное окно данными
+    document.getElementById('modalCarTitle').textContent = `${car.brand} ${car.model}`;
+    document.getElementById('modalCarYear').textContent = `${car.year} год`;
+    document.getElementById('modalCarPrice').textContent = formattedPrice;
+    document.getElementById('modalCarDescription').textContent = car.description;
+    document.getElementById('modalCarMileage').textContent = `${car.mileage.toLocaleString()} км`;
+    document.getElementById('modalCarTransmission').textContent = car.transmission;
+    document.getElementById('modalCarFuel').textContent = car.fuel;
+    document.getElementById('modalCarCategory').textContent = categoryNames[car.category] || car.category;
+    
+    // Обновляем обработчик кнопки связи
+    const modalContactBtn = document.getElementById('modalContactBtn');
+    if (modalContactBtn) {
+        modalContactBtn.onclick = () => {
+            closeCarModal();
+            handleContact(carId);
+        };
+    }
+    
+    // Показываем модальное окно
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    
+    // Анимация появления
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+}
+
+// Закрытие модального окна
+function closeCarModal() {
+    const modal = document.getElementById('carModal');
+    if (!modal) return;
+    
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+// Конфигурация - URL вашего сервера с ботом
+// ЗАМЕНИТЕ на реальный URL вашего сервера (например: 'https://your-server.com:5000')
+const SERVER_URL = 'https://savd.pythonanywhere.com';
+
+// Обработка контакта по автомобилю
+async function handleContact(carId) {
+    const car = carsData.find(c => c.id === carId);
+    if (!car) return;
+    
+    // Получаем вопрос пользователя
+    const questionInput = document.getElementById(`question-${carId}`);
+    const question = questionInput ? questionInput.value.trim() : '';
+    
+    if (!question) {
+        alert('Пожалуйста, задайте вопрос о машине');
+        if (questionInput) {
+            questionInput.focus();
+        }
+        return;
+    }
+    
+    // Получаем данные пользователя из Telegram
+    let userData = {
+        userId: null,
+        username: null,
+        firstName: null,
+        lastName: null,
+        userLink: null
+    };
+    
+    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+        const initData = Telegram.WebApp.initDataUnsafe;
+        if (initData.user) {
+            userData.userId = initData.user.id;
+            userData.username = initData.user.username || null;
+            userData.firstName = initData.user.first_name || null;
+            userData.lastName = initData.user.last_name || null;
+            
+            // Формируем ссылку на пользователя
+            if (userData.username) {
+                userData.userLink = `https://t.me/${userData.username}`;
+            } else {
+                userData.userLink = `tg://user?id=${userData.userId}`;
+            }
+        }
+    }
+    
+    // Формируем ссылку на объявление
+    const carLink = `${window.location.origin}${window.location.pathname}?car=${carId}`;
+    
     const formattedPrice = formatPrice(car.price, currentCurrency);
     
-    // Запрашиваем телефон у пользователя
-    const phone = prompt(
-        `Связаться по автомобилю:\n\n` +
-        `${car.brand} ${car.model} (${car.year})\n` +
-        `Цена: ${formattedPrice}\n` +
-        `($${car.price.toLocaleString()} USD)\n\n` +
-        `Введите ваш номер телефона:`,
-        '+7'
-    );
-    
-    if (phone) {
-        // Имитация отправки заявки (вывод в консоль)
-        const requestData = {
-            carId: car.id,
-            car: `${car.brand} ${car.model} (${car.year})`,
+    // Формируем данные для отправки
+    const requestData = {
+        car: {
+            id: car.id,
+            brand: car.brand,
+            model: car.model,
+            year: car.year,
             price: car.price,
-            priceCurrency: currentCurrency,
             priceFormatted: formattedPrice,
-            phone: phone,
-            timestamp: new Date().toISOString()
-        };
+            mileage: car.mileage,
+            transmission: car.transmission,
+            fuel: car.fuel,
+            category: car.category,
+            link: carLink
+        },
+        user: userData,
+        question: question,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Показываем индикатор загрузки
+    const contactBtn = document.querySelector(`#question-${carId}`)?.nextElementSibling;
+    const originalText = contactBtn?.textContent;
+    if (contactBtn) {
+        contactBtn.disabled = true;
+        contactBtn.textContent = 'Отправка...';
+    }
+    
+    try {
+        // Отправляем на endpoint вашего бота
+        const response = await fetch(`${SERVER_URL}/api/webapp/contact`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        });
         
-        console.log('Заявка на автомобиль:', requestData);
+        const result = await response.json();
         
-        // В реальном приложении здесь был бы запрос к API
-        // fetch('/api/requests', { method: 'POST', body: JSON.stringify(requestData) });
-        
-        alert('Спасибо! Ваша заявка принята. Мы свяжемся с вами в ближайшее время.');
-        
-        // Если в Telegram, можно использовать Telegram.WebApp.sendData()
-        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
-            Telegram.WebApp.sendData(JSON.stringify(requestData));
+        if (response.ok && result.success) {
+            alert('Спасибо! Ваш вопрос отправлен. Мы свяжемся с вами в ближайшее время.');
+            // Очищаем поле вопроса
+            if (questionInput) {
+                questionInput.value = '';
+            }
+        } else {
+            throw new Error(result.error || 'Ошибка при отправке');
+        }
+    } catch (error) {
+        console.error('Ошибка отправки:', error);
+        alert('Произошла ошибка при отправке сообщения. Попробуйте позже.');
+    } finally {
+        if (contactBtn) {
+            contactBtn.disabled = false;
+            contactBtn.textContent = originalText;
         }
     }
 }
@@ -508,6 +656,13 @@ function init() {
     
     // Обновляем плейсхолдеры цен при инициализации
     updatePricePlaceholders();
+    
+    // Закрытие полноэкранной страницы по Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeCarModal();
+        }
+    });
     
     // Первоначальная загрузка всех автомобилей
     renderCars(carsData);

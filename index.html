@@ -87,6 +87,61 @@
         </section>
     </div>
 
+    <!-- Полноэкранная страница с детальной информацией -->
+    <div id="carModal" class="car-detail-page">
+        <div class="car-detail-header">
+            <button class="car-detail-back" onclick="closeCarModal()">
+                <span>←</span> Назад
+            </button>
+        </div>
+        <div class="car-detail-content">
+            <div id="modalCarImage" class="modal-car-image"></div>
+            <div class="modal-car-info">
+                <h2 id="modalCarTitle" class="modal-car-title"></h2>
+                <div id="modalCarYear" class="modal-car-year"></div>
+                <div id="modalCarPrice" class="modal-car-price"></div>
+                <div id="modalCarDescription" class="modal-car-description"></div>
+                <div class="modal-car-specs">
+                    <div class="modal-spec-row">
+                        <div class="modal-spec-item">
+                            <span class="modal-spec-icon">📏</span>
+                            <div class="modal-spec-content">
+                                <div class="modal-spec-label">Пробег</div>
+                                <div id="modalCarMileage" class="modal-spec-value"></div>
+                            </div>
+                        </div>
+                        <div class="modal-spec-item">
+                            <span class="modal-spec-icon">⚙️</span>
+                            <div class="modal-spec-content">
+                                <div class="modal-spec-label">Коробка</div>
+                                <div id="modalCarTransmission" class="modal-spec-value"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-spec-row">
+                        <div class="modal-spec-item">
+                            <span class="modal-spec-icon">⛽</span>
+                            <div class="modal-spec-content">
+                                <div class="modal-spec-label">Топливо</div>
+                                <div id="modalCarFuel" class="modal-spec-value"></div>
+                            </div>
+                        </div>
+                        <div class="modal-spec-item">
+                            <span class="modal-spec-icon">🏷️</span>
+                            <div class="modal-spec-content">
+                                <div class="modal-spec-label">Категория</div>
+                                <div id="modalCarCategory" class="modal-spec-value"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button id="modalContactBtn" class="modal-contact-btn">
+                    Связаться по этой машине
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

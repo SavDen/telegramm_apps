@@ -650,6 +650,42 @@ body {
     transform: translateY(0) scale(0.98);
 }
 
+.contact-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.car-question-section {
+    margin-top: 16px;
+}
+
+.car-question-input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--bg-color);
+    color: var(--text-color);
+    resize: vertical;
+    min-height: 60px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.car-question-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.15);
+}
+
+.car-question-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
 .no-results {
     text-align: center;
     padding: 60px 20px;
@@ -709,6 +745,267 @@ body {
 
     .cars-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Полноэкранная страница с детальной информацией */
+.car-detail-page {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-color);
+    overflow-y: auto;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.car-detail-page.active {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.car-detail-header {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background: var(--bg-color);
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.car-detail-back {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+}
+
+.car-detail-back span {
+    font-size: 20px;
+    font-weight: 400;
+}
+
+.car-detail-back:hover {
+    background: rgba(0, 136, 204, 0.1);
+    border-color: var(--primary-color);
+    transform: translateX(-4px);
+}
+
+.car-detail-back:active {
+    transform: translateX(-2px) scale(0.98);
+}
+
+.car-detail-content {
+    width: 100%;
+    max-width: 100%;
+}
+
+.modal-car-image {
+    width: 100%;
+    height: 40vh;
+    min-height: 300px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background-size: 200% 200%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 120px;
+    position: relative;
+    overflow: hidden;
+    animation: gradientShift 8s ease infinite;
+}
+
+.modal-car-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: shimmer 3s infinite;
+}
+
+.modal-car-image::after {
+    content: '🚗';
+    opacity: 0.9;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    z-index: 1;
+    animation: pulse 3s infinite;
+}
+
+.modal-car-info {
+    padding: 24px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.modal-car-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--text-color);
+    letter-spacing: -0.5px;
+}
+
+.modal-car-year {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    font-weight: 500;
+}
+
+.modal-car-price {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    letter-spacing: -0.5px;
+}
+
+.modal-car-description {
+    font-size: 16px;
+    color: var(--text-color);
+    line-height: 1.6;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.modal-car-specs {
+    margin-bottom: 24px;
+}
+
+.modal-spec-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.modal-spec-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.modal-spec-item:hover {
+    background: rgba(0, 136, 204, 0.08);
+    border-color: rgba(0, 136, 204, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.modal-spec-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.modal-spec-content {
+    flex: 1;
+}
+
+.modal-spec-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-spec-value {
+    font-size: 16px;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.modal-contact-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--primary-gradient-alt);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 56px;
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.3px;
+}
+
+.modal-contact-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+.modal-contact-btn:hover::before {
+    left: 100%;
+}
+
+.modal-contact-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 136, 204, 0.4);
+}
+
+.modal-contact-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Адаптивность полноэкранной страницы */
+@media (max-width: 768px) {
+    .modal-car-image {
+        height: 35vh;
+        min-height: 250px;
+        font-size: 96px;
+    }
+    
+    .modal-car-title {
+        font-size: 24px;
+    }
+    
+    .modal-car-price {
+        font-size: 32px;
+    }
+    
+    .modal-spec-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-car-info {
+        padding: 20px 16px;
     }
 }
 
