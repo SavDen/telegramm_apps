@@ -255,13 +255,12 @@ function renderCars(cars) {
                         <span>${car.fuel}</span>
                     </div>
                 </div>
-                <div class="car-question-section">
+                <div class="car-question-section" onclick="event.stopPropagation();">
                     <textarea 
                         class="car-question-input" 
                         id="question-${car.id}" 
                         placeholder="Задайте вопрос о машине..."
                         rows="2"
-                        onclick="event.stopPropagation();"
                     ></textarea>
                     <button 
                         class="contact-btn" 
@@ -273,10 +272,10 @@ function renderCars(cars) {
             </div>
         `;
         
-        // Обработчик клика на карточку (но не на кнопку)
+        // Обработчик клика на карточку (но не на кнопку и не на секцию вопроса)
         card.addEventListener('click', (e) => {
-            // Проверяем, что клик не был на кнопке
-            if (!e.target.closest('.contact-btn')) {
+            // Проверяем, что клик не был на кнопке или в секции вопроса
+            if (!e.target.closest('.contact-btn') && !e.target.closest('.car-question-section')) {
                 openCarModal(car.id);
             }
         });
