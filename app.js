@@ -41,6 +41,12 @@ const currencyFormats = {
 let currentCategory = null;
 let filteredCars = [];
 let currentCurrency = 'USD';
+let selectedFilters = {
+    minYear: null,
+    maxYear: null,
+    fuelType: null,
+    brand: null
+};
 
 // Инициализация Telegram Web App
 function initTelegramWebApp() {
@@ -157,8 +163,8 @@ function renderCars(cars) {
                         class="contact-btn" 
                         onclick="event.stopPropagation(); handleContact(${car.id})"
                     >
-                        Связаться по этой машине
-                    </button>
+                    Связаться по этой машине
+                </button>
                 </div>
             </div>
         `;
@@ -311,6 +317,19 @@ function closeFiltersModal() {
 
 // Применение фильтров из модального окна
 function applyFiltersFromModal() {
+    // Сохраняем выбранные фильтры для запросов к API
+    const brandFilter = document.getElementById('brandFilter')?.value || '';
+    const fuelFilter = document.getElementById('fuelFilter')?.value || '';
+    const yearFrom = parseInt(document.getElementById('yearFrom')?.value) || null;
+    const yearTo = parseInt(document.getElementById('yearTo')?.value) || null;
+    
+    selectedFilters = {
+        brand: brandFilter || null,
+        fuelType: fuelFilter || null,
+        minYear: yearFrom,
+        maxYear: yearTo
+    };
+    
     closeFiltersModal();
     
     // Сбрасываем и загружаем заново с новыми фильтрами
@@ -453,6 +472,14 @@ function resetFilters() {
     if (mileageFrom) mileageFrom.value = '';
     if (mileageTo) mileageTo.value = '';
     
+    // Сбрасываем selectedFilters для API запросов
+    selectedFilters = {
+        minYear: null,
+        maxYear: null,
+        fuelType: null,
+        brand: null
+    };
+    
     // Сбрасываем и загружаем заново
     currentPage = 1;
     carsData = [];
@@ -552,11 +579,57 @@ function closeCarModal() {
     }, 300);
 }
 
-// Конфигурация - URL вашего сервера с ботом
-// ЗАМЕНИТЕ на реальный URL вашего сервера (например: 'https://your-server.com:5000')
+// URL CarAPIS API
+const CARAPIS_API_URL = 'https://api.carapis.com/data/encar/api/vehicles/web/';
+
+// Конфигурация - URL вашего сервера с ботом (только для отправки сообщений)
 const SERVER_URL = 'https://savd.pythonanywhere.com';
 
-// Загрузка машин с API (первая загрузка)
+// Определяет категорию машины
+function determineCategory(vehicle) {
+    const price = vehicle.price || 0;
+    const year = vehicle.year || 0;
+    
+    if (price > 70000) return 'premium';
+    if (price < 20000) return 'deal';
+    if (year >= 2022) return 'business';
+    return 'family';
+}
+
+// Преобразует данные из CarAPIS в формат приложения
+function transformVehicle(vehicle) {
+    // Разные варианты структуры данных от API
+    let brand = '';
+    if (vehicle.brand?.name) {
+        brand = vehicle.brand.name;
+    } else if (vehicle.manufacturer?.name) {
+        brand = vehicle.manufacturer.name;
+    }
+    
+    let model = '';
+    if (vehicle.vehicle_model?.name) {
+        model = vehicle.vehicle_model.name;
+    } else if (vehicle.model?.name) {
+        model = vehicle.model.name;
+    }
+    
+    const carId = vehicle.listing_id || vehicle.vehicle_id || vehicle.id;
+    
+    return {
+        id: carId,
+        brand: brand,
+        model: model,
+        year: vehicle.year || 0,
+        price: vehicle.price || 0,
+        mileage: vehicle.mileage || 0,
+        transmission: vehicle.transmission || 'Автомат',
+        fuel: vehicle.fuel_type || 'Бензин',
+        category: determineCategory(vehicle),
+        description: vehicle.description || ''
+    };
+}
+
+// Загрузка машин с CarAPIS API напрямую
 async function loadCars(reset = true) {
     if (isLoading) return;
     
@@ -575,22 +648,30 @@ async function loadCars(reset = true) {
     }
     
     try {
-        // Загружаем доступные фильтры
-        await loadAvailableFilters();
-        
         // Формируем параметры запроса
         const params = new URLSearchParams({
-            limit: 20,
             page: currentPage,
+            page_size: 20,
             ordering: '-created_at'
         });
         
-        // Добавляем фильтры
-        if (currentCategory) {
-            // Фильтр по категории обрабатывается на фронте
+        // Добавляем фильтры если есть
+        if (selectedFilters.minYear) {
+            params.append('min_year', selectedFilters.minYear);
+        }
+        if (selectedFilters.maxYear) {
+            params.append('max_year', selectedFilters.maxYear);
+        }
+        if (selectedFilters.fuelType) {
+            params.append('fuel_type', selectedFilters.fuelType);
+        }
+        if (selectedFilters.brand) {
+            // Если API поддерживает фильтр по бренду
+            params.append('manufacturer_slug', selectedFilters.brand.toLowerCase().replace(/\s+/g, '-'));
         }
         
-        const response = await fetch(`${SERVER_URL}/api/cars?${params}`);
+        // Запрос напрямую к CarAPIS API
+        const response = await fetch(`${CARAPIS_API_URL}?${params}`);
         
         if (!response.ok) {
             throw new Error(`Ошибка ${response.status}`);
@@ -598,26 +679,28 @@ async function loadCars(reset = true) {
         
         const data = await response.json();
         
-        if (data.success) {
-            const newCars = data.cars || [];
-            
-            if (reset) {
-                carsData = newCars;
-            } else {
-                carsData = [...carsData, ...newCars];
-            }
-            
-            hasMore = data.has_more !== false && newCars.length === 20;
-            currentPage++;
-            
-            // Применяем фильтры
-            applyFilters();
-            
-            // Обновляем кнопку "Загрузить еще"
-            updateLoadMoreButton();
+        // Преобразуем данные
+        const vehicles = data.results || [];
+        const newCars = vehicles.map(transformVehicle);
+        
+        if (reset) {
+            carsData = newCars;
+            // Загружаем фильтры из первой партии данных
+            await loadAvailableFilters(newCars);
         } else {
-            throw new Error(data.error || 'Ошибка загрузки данных');
+            carsData = [...carsData, ...newCars];
         }
+        
+        // Определяем, есть ли еще данные
+        const totalCount = data.count || 0;
+        hasMore = newCars.length === 20 && (currentPage * 20) < totalCount;
+        currentPage++;
+        
+        // Применяем фильтры (категория и другие фронтенд фильтры)
+        applyFilters();
+        
+        // Обновляем кнопку "Загрузить еще"
+        updateLoadMoreButton();
         
     } catch (error) {
         console.error('Ошибка загрузки машин:', error);
@@ -626,7 +709,7 @@ async function loadCars(reset = true) {
             carsGrid.innerHTML = `
                 <div class="error-message">
                     <p>Не удалось загрузить данные</p>
-                    <p class="error-hint">Попробуйте обновить страницу</p>
+                    <p class="error-hint">${error.message}</p>
                     <button onclick="loadCars(true)" class="retry-btn">Повторить</button>
                 </div>
             `;
@@ -642,18 +725,51 @@ async function loadMoreCars() {
     await loadCars(false);
 }
 
-// Загрузка доступных фильтров
-async function loadAvailableFilters() {
+// Загрузка доступных фильтров из данных машин
+async function loadAvailableFilters(cars = null) {
     try {
-        const response = await fetch(`${SERVER_URL}/api/filters`);
+        // Если данные переданы, используем их, иначе загружаем
+        let vehiclesData = cars;
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                availableFilters = data.filters;
-                updateFiltersUI();
+        if (!vehiclesData) {
+            // Загружаем небольшую выборку для анализа фильтров
+            const response = await fetch(`${CARAPIS_API_URL}?page_size=100`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                vehiclesData = (data.results || []).map(transformVehicle);
+            } else {
+                return;
             }
         }
+        
+        // Извлекаем уникальные значения для фильтров
+        const brands = new Set();
+        const fuelTypes = new Set();
+        const transmissions = new Set();
+        const years = [];
+        const prices = [];
+        
+        vehiclesData.forEach(vehicle => {
+            if (vehicle.brand) brands.add(vehicle.brand);
+            if (vehicle.fuel) fuelTypes.add(vehicle.fuel);
+            if (vehicle.transmission) transmissions.add(vehicle.transmission);
+            if (vehicle.year) years.push(vehicle.year);
+            if (vehicle.price) prices.push(vehicle.price);
+        });
+        
+        availableFilters = {
+            brands: Array.from(brands).sort(),
+            fuelTypes: Array.from(fuelTypes).sort(),
+            transmissions: Array.from(transmissions).sort(),
+            minYear: years.length > 0 ? Math.min(...years) : null,
+            maxYear: years.length > 0 ? Math.max(...years) : null,
+            minPrice: prices.length > 0 ? Math.min(...prices) : null,
+            maxPrice: prices.length > 0 ? Math.max(...prices) : null
+        };
+        
+        updateFiltersUI();
+        
     } catch (error) {
         console.error('Ошибка загрузки фильтров:', error);
     }
@@ -730,7 +846,7 @@ async function handleContact(carId) {
     const formattedPrice = formatPrice(car.price, currentCurrency);
     
     // Формируем данные для отправки
-    const requestData = {
+        const requestData = {
         car: {
             id: car.id,
             brand: car.brand,
@@ -746,9 +862,9 @@ async function handleContact(carId) {
         },
         user: userData,
         question: question,
-        timestamp: new Date().toISOString()
-    };
-    
+            timestamp: new Date().toISOString()
+        };
+        
     // Показываем индикатор загрузки
     const contactBtn = document.querySelector(`#question-${carId}`)?.nextElementSibling;
     const originalText = contactBtn?.textContent;
