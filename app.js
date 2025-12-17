@@ -1,126 +1,17 @@
-// Данные автомобилей (имитация будущего API)
-const carsData = [
-    {
-        id: 1,
-        category: 'premium',
-        brand: 'Genesis',
-        model: 'G90',
-        year: 2023,
-        price: 85000,
-        mileage: 15000,
-        transmission: 'Автомат',
-        fuel: 'Бензин',
-        description: 'Флагманский седан с максимальной комплектацией'
-    },
-    {
-        id: 2,
-        category: 'premium',
-        brand: 'Genesis',
-        model: 'GV80',
-        year: 2022,
-        price: 72000,
-        mileage: 25000,
-        transmission: 'Автомат',
-        fuel: 'Бензин',
-        description: 'Премиальный кроссовер с полным приводом'
-    },
-    {
-        id: 3,
-        category: 'family',
-        brand: 'Hyundai',
-        model: 'Tucson',
-        year: 2023,
-        price: 32000,
-        mileage: 12000,
-        transmission: 'Автомат',
-        fuel: 'Гибрид',
-        description: 'Семейный кроссовер с экономичным двигателем'
-    },
-    {
-        id: 4,
-        category: 'family',
-        brand: 'Kia',
-        model: 'Sorento',
-        year: 2022,
-        price: 38000,
-        mileage: 20000,
-        transmission: 'Автомат',
-        fuel: 'Дизель',
-        description: 'Семизместный кроссовер для большой семьи'
-    },
-    {
-        id: 5,
-        category: 'family',
-        brand: 'Hyundai',
-        model: 'Santa Fe',
-        year: 2023,
-        price: 35000,
-        mileage: 18000,
-        transmission: 'Автомат',
-        fuel: 'Гибрид',
-        description: 'Просторный семейный внедорожник'
-    },
-    {
-        id: 6,
-        category: 'business',
-        brand: 'Genesis',
-        model: 'G80',
-        year: 2023,
-        price: 55000,
-        mileage: 10000,
-        transmission: 'Автомат',
-        fuel: 'Бензин',
-        description: 'Бизнес-седан премиум-класса'
-    },
-    {
-        id: 7,
-        category: 'business',
-        brand: 'Hyundai',
-        model: 'Sonata',
-        year: 2022,
-        price: 28000,
-        mileage: 22000,
-        transmission: 'Автомат',
-        fuel: 'Гибрид',
-        description: 'Современный бизнес-седан'
-    },
-    {
-        id: 8,
-        category: 'deal',
-        brand: 'Kia',
-        model: 'Rio',
-        year: 2021,
-        price: 15000,
-        mileage: 35000,
-        transmission: 'Механика',
-        fuel: 'Бензин',
-        description: 'Экономичный компактный седан'
-    },
-    {
-        id: 9,
-        category: 'deal',
-        brand: 'Hyundai',
-        model: 'Elantra',
-        year: 2021,
-        price: 18000,
-        mileage: 30000,
-        transmission: 'Автомат',
-        fuel: 'Бензин',
-        description: 'Надежный седан по выгодной цене'
-    },
-    {
-        id: 10,
-        category: 'deal',
-        brand: 'Kia',
-        model: 'Cerato',
-        year: 2020,
-        price: 14000,
-        mileage: 40000,
-        transmission: 'Автомат',
-        fuel: 'Бензин',
-        description: 'Отличное соотношение цена-качество'
-    }
-];
+// Данные автомобилей (загружаются с API)
+let carsData = [];
+let isLoading = false;
+let currentPage = 1;
+let hasMore = true;
+let availableFilters = {
+    brands: [],
+    fuelTypes: [],
+    transmissions: [],
+    minYear: null,
+    maxYear: null,
+    minPrice: null,
+    maxPrice: null
+};
 
 // Курсы валют (относительно USD)
 const exchangeRates = {
@@ -148,7 +39,7 @@ const currencyFormats = {
 
 // Состояние приложения
 let currentCategory = null;
-let filteredCars = [...carsData];
+let filteredCars = [];
 let currentCurrency = 'USD';
 
 // Инициализация Telegram Web App
@@ -321,10 +212,14 @@ function handleCategoryClick(category) {
 // Применение фильтров
 function applyFilters() {
     const brandFilter = document.getElementById('brandFilter')?.value || '';
+    const fuelFilter = document.getElementById('fuelFilter')?.value || '';
+    const transmissionFilter = document.getElementById('transmissionFilter')?.value || '';
     const yearFrom = parseInt(document.getElementById('yearFrom')?.value) || 0;
     const yearTo = parseInt(document.getElementById('yearTo')?.value) || 9999;
     const priceFromInput = parseFloat(document.getElementById('priceFrom')?.value) || 0;
     const priceToInput = parseFloat(document.getElementById('priceTo')?.value) || 999999999;
+    const mileageFrom = parseInt(document.getElementById('mileageFrom')?.value) || 0;
+    const mileageTo = parseInt(document.getElementById('mileageTo')?.value) || 999999999;
     
     // Конвертируем введенные цены из текущей валюты в USD для сравнения
     const priceFromUSD = priceFromInput / exchangeRates[currentCurrency];
@@ -342,6 +237,16 @@ function applyFilters() {
             return false;
         }
         
+        // Фильтр по типу топлива
+        if (fuelFilter && car.fuel !== fuelFilter) {
+            return false;
+        }
+        
+        // Фильтр по коробке передач
+        if (transmissionFilter && car.transmission !== transmissionFilter) {
+            return false;
+        }
+        
         // Фильтр по году
         if (car.year < yearFrom || car.year > yearTo) {
             return false;
@@ -349,6 +254,11 @@ function applyFilters() {
         
         // Фильтр по цене (сравниваем в USD)
         if (car.price < priceFromUSD || car.price > priceToUSD) {
+            return false;
+        }
+        
+        // Фильтр по пробегу
+        if (car.mileage < mileageFrom || car.mileage > mileageTo) {
             return false;
         }
         
@@ -371,6 +281,127 @@ function applyFilters() {
     
     // Рендерим отфильтрованные автомобили
     renderCars(filteredCars);
+}
+
+// Открытие полноэкранного окна фильтров
+function openFiltersModal() {
+    const modal = document.getElementById('filtersModal');
+    if (!modal) return;
+    
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+}
+
+// Закрытие полноэкранного окна фильтров
+function closeFiltersModal() {
+    const modal = document.getElementById('filtersModal');
+    if (!modal) return;
+    
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+// Применение фильтров из модального окна
+function applyFiltersFromModal() {
+    closeFiltersModal();
+    
+    // Сбрасываем и загружаем заново с новыми фильтрами
+    currentPage = 1;
+    carsData = [];
+    loadCars(true);
+}
+
+// Обновление UI фильтров на основе доступных данных
+function updateFiltersUI() {
+    // Обновляем список марок
+    const brandSelect = document.getElementById('brandFilter');
+    if (brandSelect && availableFilters.brands) {
+        const currentValue = brandSelect.value;
+        brandSelect.innerHTML = '<option value="">Все марки</option>';
+        
+        availableFilters.brands.forEach(brand => {
+            const option = document.createElement('option');
+            option.value = brand;
+            option.textContent = brand;
+            brandSelect.appendChild(option);
+        });
+        
+        if (currentValue) {
+            brandSelect.value = currentValue;
+        }
+    }
+    
+    // Обновляем список типов топлива
+    const fuelSelect = document.getElementById('fuelFilter');
+    if (fuelSelect && availableFilters.fuelTypes) {
+        const currentValue = fuelSelect.value;
+        fuelSelect.innerHTML = '<option value="">Все типы</option>';
+        
+        availableFilters.fuelTypes.forEach(fuel => {
+            const option = document.createElement('option');
+            option.value = fuel;
+            option.textContent = fuel;
+            fuelSelect.appendChild(option);
+        });
+        
+        if (currentValue) {
+            fuelSelect.value = currentValue;
+        }
+    }
+    
+    // Обновляем список коробок передач
+    const transmissionSelect = document.getElementById('transmissionFilter');
+    if (transmissionSelect && availableFilters.transmissions) {
+        const currentValue = transmissionSelect.value;
+        transmissionSelect.innerHTML = '<option value="">Все типы</option>';
+        
+        availableFilters.transmissions.forEach(transmission => {
+            const option = document.createElement('option');
+            option.value = transmission;
+            option.textContent = transmission;
+            transmissionSelect.appendChild(option);
+        });
+        
+        if (currentValue) {
+            transmissionSelect.value = currentValue;
+        }
+    }
+    
+    // Обновляем диапазоны года
+    const yearFromInput = document.getElementById('yearFrom');
+    const yearToInput = document.getElementById('yearTo');
+    if (availableFilters.minYear && availableFilters.maxYear) {
+        if (yearFromInput) {
+            yearFromInput.min = availableFilters.minYear;
+            yearFromInput.max = availableFilters.maxYear;
+        }
+        if (yearToInput) {
+            yearToInput.min = availableFilters.minYear;
+            yearToInput.max = availableFilters.maxYear;
+        }
+    }
+    
+    // Обновляем диапазоны цены
+    const priceFromInput = document.getElementById('priceFrom');
+    const priceToInput = document.getElementById('priceTo');
+    if (availableFilters.minPrice && availableFilters.maxPrice) {
+        if (priceFromInput) {
+            priceFromInput.min = availableFilters.minPrice;
+            priceFromInput.max = availableFilters.maxPrice;
+        }
+        if (priceToInput) {
+            priceToInput.min = availableFilters.minPrice;
+            priceToInput.max = availableFilters.maxPrice;
+        }
+    }
 }
 
 // Обновление заголовка результатов
@@ -402,14 +433,30 @@ function resetFilters() {
     });
     
     // Сбрасываем значения фильтров
-    document.getElementById('brandFilter').value = '';
-    document.getElementById('yearFrom').value = '';
-    document.getElementById('yearTo').value = '';
-    document.getElementById('priceFrom').value = '';
-    document.getElementById('priceTo').value = '';
+    const brandFilter = document.getElementById('brandFilter');
+    const fuelFilter = document.getElementById('fuelFilter');
+    const transmissionFilter = document.getElementById('transmissionFilter');
+    const yearFrom = document.getElementById('yearFrom');
+    const yearTo = document.getElementById('yearTo');
+    const priceFrom = document.getElementById('priceFrom');
+    const priceTo = document.getElementById('priceTo');
+    const mileageFrom = document.getElementById('mileageFrom');
+    const mileageTo = document.getElementById('mileageTo');
     
-    // Применяем фильтры (показываем все)
-    applyFilters();
+    if (brandFilter) brandFilter.value = '';
+    if (fuelFilter) fuelFilter.value = '';
+    if (transmissionFilter) transmissionFilter.value = '';
+    if (yearFrom) yearFrom.value = '';
+    if (yearTo) yearTo.value = '';
+    if (priceFrom) priceFrom.value = '';
+    if (priceTo) priceTo.value = '';
+    if (mileageFrom) mileageFrom.value = '';
+    if (mileageTo) mileageTo.value = '';
+    
+    // Сбрасываем и загружаем заново
+    currentPage = 1;
+    carsData = [];
+    loadCars(true);
 }
 
 // Обновление плейсхолдеров фильтров цен
@@ -508,6 +555,131 @@ function closeCarModal() {
 // Конфигурация - URL вашего сервера с ботом
 // ЗАМЕНИТЕ на реальный URL вашего сервера (например: 'https://your-server.com:5000')
 const SERVER_URL = 'https://savd.pythonanywhere.com';
+
+// Загрузка машин с API (первая загрузка)
+async function loadCars(reset = true) {
+    if (isLoading) return;
+    
+    isLoading = true;
+    
+    const carsGrid = document.getElementById('carsGrid');
+    
+    if (reset) {
+        currentPage = 1;
+        carsData = [];
+        hasMore = true;
+        
+        if (carsGrid) {
+            carsGrid.innerHTML = '<div class="loading">Загрузка машин...</div>';
+        }
+    }
+    
+    try {
+        // Загружаем доступные фильтры
+        await loadAvailableFilters();
+        
+        // Формируем параметры запроса
+        const params = new URLSearchParams({
+            limit: 20,
+            page: currentPage,
+            ordering: '-created_at'
+        });
+        
+        // Добавляем фильтры
+        if (currentCategory) {
+            // Фильтр по категории обрабатывается на фронте
+        }
+        
+        const response = await fetch(`${SERVER_URL}/api/cars?${params}`);
+        
+        if (!response.ok) {
+            throw new Error(`Ошибка ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const newCars = data.cars || [];
+            
+            if (reset) {
+                carsData = newCars;
+            } else {
+                carsData = [...carsData, ...newCars];
+            }
+            
+            hasMore = data.has_more !== false && newCars.length === 20;
+            currentPage++;
+            
+            // Применяем фильтры
+            applyFilters();
+            
+            // Обновляем кнопку "Загрузить еще"
+            updateLoadMoreButton();
+        } else {
+            throw new Error(data.error || 'Ошибка загрузки данных');
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки машин:', error);
+        
+        if (carsGrid && reset) {
+            carsGrid.innerHTML = `
+                <div class="error-message">
+                    <p>Не удалось загрузить данные</p>
+                    <p class="error-hint">Попробуйте обновить страницу</p>
+                    <button onclick="loadCars(true)" class="retry-btn">Повторить</button>
+                </div>
+            `;
+        }
+    } finally {
+        isLoading = false;
+    }
+}
+
+// Загрузка еще машин
+async function loadMoreCars() {
+    if (isLoading || !hasMore) return;
+    await loadCars(false);
+}
+
+// Загрузка доступных фильтров
+async function loadAvailableFilters() {
+    try {
+        const response = await fetch(`${SERVER_URL}/api/filters`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                availableFilters = data.filters;
+                updateFiltersUI();
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки фильтров:', error);
+    }
+}
+
+// Обновление кнопки "Загрузить еще"
+function updateLoadMoreButton() {
+    let loadMoreBtn = document.getElementById('loadMoreBtn');
+    const carsGrid = document.getElementById('carsGrid');
+    
+    if (!hasMore) {
+        if (loadMoreBtn) {
+            loadMoreBtn.remove();
+        }
+        return;
+    }
+    
+    if (!loadMoreBtn && carsGrid) {
+        loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'loadMoreBtn';
+        loadMoreBtn.className = 'load-more-btn';
+        loadMoreBtn.textContent = 'Загрузить еще';
+        loadMoreBtn.onclick = loadMoreCars;
+        carsGrid.parentElement.appendChild(loadMoreBtn);
+    }
+}
 
 // Обработка контакта по автомобилю
 async function handleContact(carId) {
@@ -630,16 +802,10 @@ function init() {
         });
     });
     
-    // Назначаем обработчик кнопки "Показать"
-    const applyBtn = document.getElementById('applyFilters');
-    if (applyBtn) {
-        applyBtn.addEventListener('click', applyFilters);
-    }
-    
-    // Назначаем обработчик кнопки "Сбросить"
-    const resetBtn = document.getElementById('resetFilters');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetFilters);
+    // Назначаем обработчик кнопки открытия фильтров
+    const openFiltersBtn = document.getElementById('openFiltersBtn');
+    if (openFiltersBtn) {
+        openFiltersBtn.addEventListener('click', openFiltersModal);
     }
     
     // Назначаем обработчик изменения валюты
@@ -663,15 +829,29 @@ function init() {
     // Обновляем плейсхолдеры цен при инициализации
     updatePricePlaceholders();
     
-    // Закрытие полноэкранной страницы по Escape
+    // Закрытие модальных окон по Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeCarModal();
+            closeFiltersModal();
         }
     });
     
-    // Первоначальная загрузка всех автомобилей
-    renderCars(carsData);
+    // Закрытие модального окна фильтров при клике вне его
+    const filtersModal = document.getElementById('filtersModal');
+    if (filtersModal) {
+        filtersModal.addEventListener('click', (e) => {
+            if (e.target === filtersModal) {
+                closeFiltersModal();
+            }
+        });
+    }
+    
+    // Загружаем машины с API при старте
+    loadCars();
+    
+    // Автообновление каждые 5 минут
+    setInterval(loadCars, 5 * 60 * 1000);
 }
 
 // Запуск приложения после загрузки DOM

@@ -46,29 +46,11 @@
             </div>
         </section>
 
-        <!-- Фильтры -->
+        <!-- Кнопка фильтров -->
         <section class="filters-section">
-            <div class="filters-container">
-                <select id="brandFilter" class="filter-select">
-                    <option value="">Все марки</option>
-                    <option value="Hyundai">Hyundai</option>
-                    <option value="Kia">Kia</option>
-                    <option value="Genesis">Genesis</option>
-                </select>
-
-                <div class="filter-row">
-                    <input type="number" id="yearFrom" class="filter-input" placeholder="Год от" min="2000" max="2024">
-                    <input type="number" id="yearTo" class="filter-input" placeholder="Год до" min="2000" max="2024">
-                </div>
-
-                <div class="filter-row">
-                    <input type="number" id="priceFrom" class="filter-input" placeholder="Цена от" min="0">
-                    <input type="number" id="priceTo" class="filter-input" placeholder="Цена до" min="0">
-                </div>
-
-                <button id="applyFilters" class="apply-btn">Показать</button>
-                <button id="resetFilters" class="reset-btn">Сбросить</button>
-            </div>
+            <button id="openFiltersBtn" class="filters-toggle-btn">
+                <span>🔍</span> Фильтры
+            </button>
         </section>
 
         <!-- Результаты -->
@@ -139,6 +121,66 @@
                     Связаться по этой машине
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Полноэкранное окно фильтров -->
+    <div id="filtersModal" class="filters-modal">
+        <div class="filters-modal-header">
+            <h2>Фильтры</h2>
+            <button class="filters-modal-close" onclick="closeFiltersModal()">
+                <span>✕</span>
+            </button>
+        </div>
+        <div class="filters-modal-content">
+            <div class="filter-group">
+                <label class="filter-label">Марка</label>
+                <select id="brandFilter" class="filter-select">
+                    <option value="">Все марки</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Тип топлива</label>
+                <select id="fuelFilter" class="filter-select">
+                    <option value="">Все типы</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Коробка передач</label>
+                <select id="transmissionFilter" class="filter-select">
+                    <option value="">Все типы</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Год выпуска</label>
+                <div class="filter-row">
+                    <input type="number" id="yearFrom" class="filter-input" placeholder="От" min="2000" max="2024">
+                    <input type="number" id="yearTo" class="filter-input" placeholder="До" min="2000" max="2024">
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Цена (USD)</label>
+                <div class="filter-row">
+                    <input type="number" id="priceFrom" class="filter-input" placeholder="От" min="0">
+                    <input type="number" id="priceTo" class="filter-input" placeholder="До" min="0">
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Пробег (км)</label>
+                <div class="filter-row">
+                    <input type="number" id="mileageFrom" class="filter-input" placeholder="От" min="0">
+                    <input type="number" id="mileageTo" class="filter-input" placeholder="До" min="0">
+                </div>
+            </div>
+        </div>
+        <div class="filters-modal-footer">
+            <button class="reset-btn" onclick="resetFilters()">Сбросить</button>
+            <button class="apply-btn" onclick="applyFiltersFromModal()">Применить</button>
         </div>
     </div>
 
