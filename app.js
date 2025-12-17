@@ -580,7 +580,7 @@ function closeCarModal() {
 }
 
 // Конфигурация - URL вашего сервера с ботом
-const SERVER_URL = 'https://savd.pythonanywhere.com';
+const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
 // Загрузка машин с API через бэкенд (прокси)
 async function loadCars(reset = true) {
