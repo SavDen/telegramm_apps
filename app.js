@@ -579,57 +579,10 @@ function closeCarModal() {
     }, 300);
 }
 
-// URL CarAPIS API
-const CARAPIS_API_URL = 'https://api.carapis.com/data/encar/api/vehicles/web/';
-
-// Конфигурация - URL вашего сервера с ботом (только для отправки сообщений)
+// Конфигурация - URL вашего сервера с ботом
 const SERVER_URL = 'https://savd.pythonanywhere.com';
 
-// Определяет категорию машины
-function determineCategory(vehicle) {
-    const price = vehicle.price || 0;
-    const year = vehicle.year || 0;
-    
-    if (price > 70000) return 'premium';
-    if (price < 20000) return 'deal';
-    if (year >= 2022) return 'business';
-    return 'family';
-}
-
-// Преобразует данные из CarAPIS в формат приложения
-function transformVehicle(vehicle) {
-    // Разные варианты структуры данных от API
-    let brand = '';
-    if (vehicle.brand?.name) {
-        brand = vehicle.brand.name;
-    } else if (vehicle.manufacturer?.name) {
-        brand = vehicle.manufacturer.name;
-    }
-    
-    let model = '';
-    if (vehicle.vehicle_model?.name) {
-        model = vehicle.vehicle_model.name;
-    } else if (vehicle.model?.name) {
-        model = vehicle.model.name;
-    }
-    
-    const carId = vehicle.listing_id || vehicle.vehicle_id || vehicle.id;
-    
-    return {
-        id: carId,
-        brand: brand,
-        model: model,
-        year: vehicle.year || 0,
-        price: vehicle.price || 0,
-        mileage: vehicle.mileage || 0,
-        transmission: vehicle.transmission || 'Автомат',
-        fuel: vehicle.fuel_type || 'Бензин',
-        category: determineCategory(vehicle),
-        description: vehicle.description || ''
-    };
-}
-
-// Загрузка машин с CarAPIS API напрямую
+// Загрузка машин с API через бэкенд (прокси)
 async function loadCars(reset = true) {
     if (isLoading) return;
     
@@ -651,8 +604,7 @@ async function loadCars(reset = true) {
         // Формируем параметры запроса
         const params = new URLSearchParams({
             page: currentPage,
-            page_size: 20,
-            ordering: '-created_at'
+            page_size: 20
         });
         
         // Добавляем фильтры если есть
@@ -665,13 +617,9 @@ async function loadCars(reset = true) {
         if (selectedFilters.fuelType) {
             params.append('fuel_type', selectedFilters.fuelType);
         }
-        if (selectedFilters.brand) {
-            // Если API поддерживает фильтр по бренду
-            params.append('manufacturer_slug', selectedFilters.brand.toLowerCase().replace(/\s+/g, '-'));
-        }
         
-        // Запрос напрямую к CarAPIS API
-        const response = await fetch(`${CARAPIS_API_URL}?${params}`);
+        // Запрос через бэкенд (прокси)
+        const response = await fetch(`${SERVER_URL}/api/cars?${params}`);
         
         if (!response.ok) {
             throw new Error(`Ошибка ${response.status}`);
@@ -679,28 +627,28 @@ async function loadCars(reset = true) {
         
         const data = await response.json();
         
-        // Преобразуем данные
-        const vehicles = data.results || [];
-        const newCars = vehicles.map(transformVehicle);
-        
-        if (reset) {
-            carsData = newCars;
-            // Загружаем фильтры из первой партии данных
-            await loadAvailableFilters(newCars);
+        if (data.success) {
+            const newCars = data.cars || [];
+            
+            if (reset) {
+                carsData = newCars;
+                // Загружаем фильтры
+                await loadAvailableFilters();
+            } else {
+                carsData = [...carsData, ...newCars];
+            }
+            
+            hasMore = data.has_more !== false && newCars.length === 20;
+            currentPage++;
+            
+            // Применяем фильтры (категория и другие фронтенд фильтры)
+            applyFilters();
+            
+            // Обновляем кнопку "Загрузить еще"
+            updateLoadMoreButton();
         } else {
-            carsData = [...carsData, ...newCars];
+            throw new Error(data.error || 'Ошибка загрузки данных');
         }
-        
-        // Определяем, есть ли еще данные
-        const totalCount = data.count || 0;
-        hasMore = newCars.length === 20 && (currentPage * 20) < totalCount;
-        currentPage++;
-        
-        // Применяем фильтры (категория и другие фронтенд фильтры)
-        applyFilters();
-        
-        // Обновляем кнопку "Загрузить еще"
-        updateLoadMoreButton();
         
     } catch (error) {
         console.error('Ошибка загрузки машин:', error);
@@ -725,51 +673,18 @@ async function loadMoreCars() {
     await loadCars(false);
 }
 
-// Загрузка доступных фильтров из данных машин
-async function loadAvailableFilters(cars = null) {
+// Загрузка доступных фильтров через бэкенд
+async function loadAvailableFilters() {
     try {
-        // Если данные переданы, используем их, иначе загружаем
-        let vehiclesData = cars;
+        const response = await fetch(`${SERVER_URL}/api/filters`);
         
-        if (!vehiclesData) {
-            // Загружаем небольшую выборку для анализа фильтров
-            const response = await fetch(`${CARAPIS_API_URL}?page_size=100`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                vehiclesData = (data.results || []).map(transformVehicle);
-            } else {
-                return;
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                availableFilters = data.filters;
+                updateFiltersUI();
             }
         }
-        
-        // Извлекаем уникальные значения для фильтров
-        const brands = new Set();
-        const fuelTypes = new Set();
-        const transmissions = new Set();
-        const years = [];
-        const prices = [];
-        
-        vehiclesData.forEach(vehicle => {
-            if (vehicle.brand) brands.add(vehicle.brand);
-            if (vehicle.fuel) fuelTypes.add(vehicle.fuel);
-            if (vehicle.transmission) transmissions.add(vehicle.transmission);
-            if (vehicle.year) years.push(vehicle.year);
-            if (vehicle.price) prices.push(vehicle.price);
-        });
-        
-        availableFilters = {
-            brands: Array.from(brands).sort(),
-            fuelTypes: Array.from(fuelTypes).sort(),
-            transmissions: Array.from(transmissions).sort(),
-            minYear: years.length > 0 ? Math.min(...years) : null,
-            maxYear: years.length > 0 ? Math.max(...years) : null,
-            minPrice: prices.length > 0 ? Math.min(...prices) : null,
-            maxPrice: prices.length > 0 ? Math.max(...prices) : null
-        };
-        
-        updateFiltersUI();
-        
     } catch (error) {
         console.error('Ошибка загрузки фильтров:', error);
     }
