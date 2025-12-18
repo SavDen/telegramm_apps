@@ -96,6 +96,83 @@ function formatPrice(priceUSD, currency) {
 }
 
 // Рендеринг карточек автомобилей
+// Создание карточки машины
+function createCarCard(car, index) {
+    const card = document.createElement('div');
+    card.className = 'car-card';
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    card.style.cursor = 'pointer';
+    
+    const formattedPrice = formatPrice(car.price || 0, currentCurrency);
+    
+    // Формируем HTML для фото
+    let photoHTML = '';
+    let hasPhoto = false;
+    if (car.photo_url) {
+        photoHTML = `<img src="${car.photo_url}" alt="${car.brand} ${car.model}" class="car-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
+        hasPhoto = true;
+    }
+    photoHTML += '<div class="car-image-placeholder" style="display: none;">🚗</div>';
+    
+    const imageClass = hasPhoto ? 'car-image has-photo' : 'car-image';
+    
+    card.innerHTML = `
+        <div class="${imageClass}">
+            ${photoHTML}
+        </div>
+        <div class="car-info">
+            <div class="car-title">${car.brand || ''} ${car.model || ''}</div>
+            <div class="car-year">${car.year || ''} ${car.year ? 'год' : ''}</div>
+            <div class="car-price ${car.category === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
+            <div class="car-specs">
+                <div class="car-spec-item">
+                    <span>📏</span>
+                    <span>${(car.mileage || 0).toLocaleString()} км</span>
+                </div>
+                <div class="car-spec-item">
+                    <span>⚙️</span>
+                    <span>${car.transmission || ''}</span>
+                </div>
+                <div class="car-spec-item">
+                    <span>⛽</span>
+                    <span>${car.fuel || ''}</span>
+                </div>
+            </div>
+            <div class="car-question-section" onclick="event.stopPropagation();">
+                <textarea 
+                    class="car-question-input" 
+                    id="question-${car.id}" 
+                    placeholder="Задайте вопрос о машине..."
+                    rows="2"
+                ></textarea>
+                <button 
+                    class="contact-btn" 
+                    onclick="event.stopPropagation(); handleContact('${car.id}')"
+                >
+                    Связаться по этой машине
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Обработчик клика на карточку
+    card.addEventListener('click', (e) => {
+        if (!e.target.closest('.contact-btn') && !e.target.closest('.car-question-section')) {
+            openCarModal(car.id);
+        }
+    });
+    
+    // Анимация появления с задержкой
+    setTimeout(() => {
+        card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    }, index * 100);
+    
+    return card;
+}
+
 function renderCars(cars) {
     const carsGrid = document.getElementById('carsGrid');
     const noResults = document.getElementById('noResults');
@@ -124,67 +201,8 @@ function renderCars(cars) {
     
     // Создаем карточки с анимацией
     cars.forEach((car, index) => {
-        const card = document.createElement('div');
-        card.className = 'car-card';
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        card.style.cursor = 'pointer';
-        
-        const formattedPrice = formatPrice(car.price, currentCurrency);
-        
-        card.innerHTML = `
-            <div class="car-image"></div>
-            <div class="car-info">
-                <div class="car-title">${car.brand} ${car.model}</div>
-                <div class="car-year">${car.year} год</div>
-                <div class="car-price ${car.category === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
-                <div class="car-specs">
-                    <div class="car-spec-item">
-                        <span>📏</span>
-                        <span>${car.mileage.toLocaleString()} км</span>
-                    </div>
-                    <div class="car-spec-item">
-                        <span>⚙️</span>
-                        <span>${car.transmission}</span>
-                    </div>
-                    <div class="car-spec-item">
-                        <span>⛽</span>
-                        <span>${car.fuel}</span>
-                    </div>
-                </div>
-                <div class="car-question-section" onclick="event.stopPropagation();">
-                    <textarea 
-                        class="car-question-input" 
-                        id="question-${car.id}" 
-                        placeholder="Задайте вопрос о машине..."
-                        rows="2"
-                    ></textarea>
-                    <button 
-                        class="contact-btn" 
-                        onclick="event.stopPropagation(); handleContact(${car.id})"
-                    >
-                    Связаться по этой машине
-                </button>
-                </div>
-            </div>
-        `;
-        
-        // Обработчик клика на карточку (но не на кнопку и не на секцию вопроса)
-        card.addEventListener('click', (e) => {
-            // Проверяем, что клик не был на кнопке или в секции вопроса
-            if (!e.target.closest('.contact-btn') && !e.target.closest('.car-question-section')) {
-                openCarModal(car.id);
-            }
-        });
-        
+        const card = createCarCard(car, index);
         carsGrid.appendChild(card);
-        
-        // Анимация появления с задержкой
-        setTimeout(() => {
-            card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
     });
 }
 
@@ -579,10 +597,155 @@ function closeCarModal() {
     }, 300);
 }
 
-// Конфигурация - URL вашего сервера с ботом
+// Конфигурация - URL вашего сервера с ботом (только для отправки сообщений)
 const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
-// Загрузка машин с API через бэкенд (прокси)
+// URL к CSV экспорту Google Sheets
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/14cuDxW6YdKnf3cFd18JhnwQ5v4gnOKhrCTZDVo96VCc/export?format=csv&gid=1644141353';
+
+// Кэш для всех машин
+let allCarsData = [];
+let csvCacheTime = 0;
+const CSV_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
+// Функция парсинга CSV
+function parseCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return [];
+    
+    // Парсим заголовки
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    
+    const cars = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        try {
+            // Парсим строку CSV (учитываем кавычки и запятые внутри значений)
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let j = 0; j < lines[i].length; j++) {
+                const char = lines[i][j];
+                
+                if (char === '"') {
+                    if (inQuotes && lines[i][j + 1] === '"') {
+                        current += '"';
+                        j++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim()); // Последнее значение
+            
+            // Создаем объект машины
+            const row = {};
+            headers.forEach((header, index) => {
+                let value = values[index] || '';
+                // Убираем кавычки если есть
+                if (value.startsWith('"') && value.endsWith('"')) {
+                    value = value.slice(1, -1);
+                }
+                row[header] = value;
+            });
+            
+            // Парсим данные из колонок
+            const brand = (row['B'] || '').trim();
+            const model = (row['C'] || '').trim();
+            
+            // Пропускаем пустые строки
+            if (!brand && !model) continue;
+            
+            // Парсим цену (колонка I)
+            let price = null;
+            const priceStr = (row['I'] || '').trim();
+            if (priceStr) {
+                const priceNum = parseInt(priceStr.replace(/[\s,.]/g, ''));
+                if (!isNaN(priceNum)) price = priceNum;
+            }
+            
+            // Парсим пробег (колонка J)
+            let mileage = null;
+            const mileageStr = (row['J'] || '').trim();
+            if (mileageStr) {
+                const mileageNum = parseInt(mileageStr.replace(/[\s,.]/g, ''));
+                if (!isNaN(mileageNum)) mileage = mileageNum;
+            }
+            
+            // Парсим год (колонка Y - формат "202012")
+            let year = null;
+            const yearStr = (row['Y'] || '').trim();
+            if (yearStr) {
+                if (yearStr.length === 6) {
+                    year = parseInt(yearStr.substring(0, 4));
+                } else if (yearStr.length >= 4) {
+                    year = parseInt(yearStr.substring(0, 4));
+                }
+            }
+            
+            // Парсим фото (колонка V - JSON массив)
+            let photo_url = null;
+            let photo_urls = [];
+            const photosStr = (row['V'] || '').trim();
+            if (photosStr) {
+                try {
+                    // Пытаемся распарсить как JSON
+                    let photosJson = photosStr;
+                    // Убираем экранированные кавычки если есть
+                    if (photosJson.startsWith('"[')) {
+                        photosJson = photosJson.slice(1, -1).replace(/\\"/g, '"');
+                    }
+                    if (photosJson.startsWith('[')) {
+                        photo_urls = JSON.parse(photosJson);
+                        if (Array.isArray(photo_urls) && photo_urls.length > 0) {
+                            photo_url = photo_urls[0];
+                        }
+                    }
+                } catch (e) {
+                    // Если не JSON, пытаемся найти URL
+                    const urlMatch = photosStr.match(/https?:\/\/[^\s"]+/);
+                    if (urlMatch) {
+                        photo_url = urlMatch[0];
+                        photo_urls = [photo_url];
+                    }
+                }
+            }
+            
+            const car = {
+                id: `car_${i}`,
+                brand: brand,
+                model: model,
+                year: year,
+                price: price,
+                mileage: mileage,
+                transmission: (row['L'] || '').trim(),
+                fuel: (row['K'] || '').trim(),
+                category: price && price < 5000000 ? 'deal' : 'premium',
+                description: (row['U'] || '').substring(0, 500),
+                photo_url: photo_url,
+                photo_urls: photo_urls,
+                type: (row['M'] || '').trim()
+            };
+            
+            cars.push(car);
+        } catch (error) {
+            console.warn(`Ошибка парсинга строки ${i}:`, error);
+            continue;
+        }
+    }
+    
+    return cars;
+}
+
+// Загрузка машин из CSV
 async function loadCars(reset = true) {
     if (isLoading) return;
     
@@ -601,53 +764,71 @@ async function loadCars(reset = true) {
     }
     
     try {
-        // Формируем параметры запроса
-        const params = new URLSearchParams({
-            page: currentPage,
-            page_size: 20
-        });
-        
-        // Добавляем фильтры если есть
-        if (selectedFilters.minYear) {
-            params.append('min_year', selectedFilters.minYear);
-        }
-        if (selectedFilters.maxYear) {
-            params.append('max_year', selectedFilters.maxYear);
-        }
-        if (selectedFilters.fuelType) {
-            params.append('fuel_type', selectedFilters.fuelType);
-        }
-        
-        // Запрос через бэкенд (прокси)
-        const response = await fetch(`${SERVER_URL}/api/cars?${params}`);
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const newCars = data.cars || [];
+        // Проверяем кэш
+        const now = Date.now();
+        if (reset && allCarsData.length > 0 && (now - csvCacheTime) < CSV_CACHE_TTL) {
+            console.log('Используем кэшированные данные');
+        } else {
+            // Загружаем CSV из Google Sheets
+            const response = await fetch(CSV_URL);
             
-            if (reset) {
-                carsData = newCars;
-                // Загружаем фильтры
-                await loadAvailableFilters();
-            } else {
-                carsData = [...carsData, ...newCars];
+            if (!response.ok) {
+                throw new Error(`Ошибка загрузки CSV: ${response.status}`);
             }
             
-            hasMore = data.has_more !== false && newCars.length === 20;
+            const csvText = await response.text();
+            
+            // Парсим CSV
+            allCarsData = parseCSV(csvText);
+            csvCacheTime = now;
+            
+            console.log(`Загружено ${allCarsData.length} машин из CSV`);
+            
+            // Извлекаем доступные фильтры
+            extractAvailableFilters();
+        }
+        
+        // Применяем фильтры
+        let filteredCars = [...allCarsData];
+        
+        if (selectedFilters.minYear) {
+            filteredCars = filteredCars.filter(c => c.year && c.year >= selectedFilters.minYear);
+        }
+        if (selectedFilters.maxYear) {
+            filteredCars = filteredCars.filter(c => c.year && c.year <= selectedFilters.maxYear);
+        }
+        if (selectedFilters.fuelType) {
+            filteredCars = filteredCars.filter(c => c.fuel === selectedFilters.fuelType);
+        }
+        if (selectedFilters.brand) {
+            filteredCars = filteredCars.filter(c => c.brand === selectedFilters.brand);
+        }
+        
+        // Пагинация
+        const pageSize = 20;
+        let paginatedCars;
+        
+        if (reset) {
+            carsData = filteredCars;
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            paginatedCars = filteredCars.slice(start, end);
+            hasMore = end < filteredCars.length;
             currentPage++;
             
             // Применяем фильтры (категория и другие фронтенд фильтры)
             applyFilters();
-            
-            // Обновляем кнопку "Загрузить еще"
-            updateLoadMoreButton();
         } else {
-            throw new Error(data.error || 'Ошибка загрузки данных');
+            // Для "Загрузить еще" добавляем к существующим
+            const start = carsData.length;
+            const end = start + pageSize;
+            paginatedCars = filteredCars.slice(start, end);
+            hasMore = end < filteredCars.length;
+            currentPage++;
+            
+            // Добавляем новые карточки
+            appendCars(paginatedCars);
+            updateLoadMoreButton();
         }
         
     } catch (error) {
@@ -667,26 +848,46 @@ async function loadCars(reset = true) {
     }
 }
 
+// Добавление новых карточек (для пагинации)
+function appendCars(cars) {
+    const carsGrid = document.getElementById('carsGrid');
+    if (!carsGrid) return;
+    
+    cars.forEach((car, index) => {
+        const card = createCarCard(car, carsData.length + index);
+        carsGrid.appendChild(card);
+    });
+}
+
+// Извлечение доступных фильтров из данных
+function extractAvailableFilters() {
+    const brands = [...new Set(allCarsData.map(c => c.brand).filter(b => b))].sort();
+    const years = [...new Set(allCarsData.map(c => c.year).filter(y => y))].sort((a, b) => b - a);
+    const fuelTypes = [...new Set(allCarsData.map(c => c.fuel).filter(f => f))].sort();
+    const transmissions = [...new Set(allCarsData.map(c => c.transmission).filter(t => t))].sort();
+    
+    availableFilters = {
+        brands: brands,
+        years: years,
+        fuel_types: fuelTypes,
+        transmissions: transmissions
+    };
+    
+    updateFiltersUI();
+}
+
 // Загрузка еще машин
 async function loadMoreCars() {
     if (isLoading || !hasMore) return;
     await loadCars(false);
 }
 
-// Загрузка доступных фильтров через бэкенд
+// Загрузка доступных фильтров (теперь извлекается из загруженных данных)
 async function loadAvailableFilters() {
-    try {
-        const response = await fetch(`${SERVER_URL}/api/filters`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                availableFilters = data.filters;
-                updateFiltersUI();
-            }
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки фильтров:', error);
+    // Фильтры извлекаются автоматически при загрузке CSV
+    // Эта функция оставлена для совместимости
+    if (allCarsData.length > 0) {
+        extractAvailableFilters();
     }
 }
 
