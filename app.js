@@ -301,15 +301,7 @@ function createCarCard(car, index) {
     let photoHTML = '';
     let hasPhoto = false;
     
-    // Для первой карточки логируем
-    if (index === 0) {
-        console.log('Создание карточки:', {
-            brand: car.brand,
-            model: car.model,
-            photo_url: car.photo_url ? car.photo_url.substring(0, 50) + '...' : 'нет',
-            hasPhotoUrl: !!car.photo_url
-        });
-    }
+    // Логирование отключено для производительности
     
     if (car.photo_url && car.photo_url.trim()) {
         // Показываем фото, если не загрузится - покажем плейсхолдер
@@ -389,11 +381,32 @@ function renderCars(cars) {
         noResults.style.display = 'none';
     }
     
-    // Создаем карточки с анимацией
-    cars.forEach((car, index) => {
-        const card = createCarCard(car, index);
-        carsGrid.appendChild(card);
-    });
+    // Рендерим карточки батчами для производительности на мобильных
+    const BATCH_SIZE = 10; // Рендерим по 10 карточек за раз
+    let currentIndex = 0;
+    
+    function renderBatch() {
+        const endIndex = Math.min(currentIndex + BATCH_SIZE, cars.length);
+        
+        // Создаем DocumentFragment для быстрой вставки
+        const fragment = document.createDocumentFragment();
+        
+        for (let i = currentIndex; i < endIndex; i++) {
+            const card = createCarCard(cars[i], i);
+            fragment.appendChild(card);
+        }
+        
+        carsGrid.appendChild(fragment);
+        currentIndex = endIndex;
+        
+        // Если есть еще карточки, рендерим следующую партию через requestAnimationFrame
+        if (currentIndex < cars.length) {
+            requestAnimationFrame(renderBatch);
+        }
+    }
+    
+    // Начинаем рендеринг
+    renderBatch();
 }
 
 // Обработка нажатия на категорию
@@ -922,12 +935,35 @@ function closeCarModal() {
 // Загрузка машин происходит напрямую из Google Sheets CSV (без бэкенда)
 const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
+// Флаг для детального логирования (отключить для production на мобильных)
+const ENABLE_DETAILED_LOGS = false; // Отключаем детальные логи для производительности
+const ENABLE_ERROR_LOGS = true; // Оставляем только ошибки
+
+// Переопределяем console.log для отключения в production
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+console.log = function(...args) {
+    if (ENABLE_DETAILED_LOGS) {
+        originalConsoleLog.apply(console, args);
+    }
+};
+console.warn = function(...args) {
+    if (ENABLE_DETAILED_LOGS || ENABLE_ERROR_LOGS) {
+        originalConsoleWarn.apply(console, args);
+    }
+};
+
 // Массив для хранения логов (для отладки) - определяется раньше для использования
 const debugLogs = [];
-const MAX_LOGS = 50;
+const MAX_LOGS = 20; // Уменьшили для экономии памяти
 
 // Функция для логирования с сохранением (определяется раньше для использования)
 function debugLog(level, message, data = null) {
+    // В production режиме логируем только ошибки
+    if (!ENABLE_DETAILED_LOGS && level !== 'ERROR' && level !== 'WARN') {
+        return;
+    }
+    
     const timestamp = new Date().toISOString();
     const logEntry = {
         timestamp,
@@ -941,19 +977,24 @@ function debugLog(level, message, data = null) {
         debugLogs.shift(); // Удаляем старые логи
     }
     
-    // Выводим в консоль
-    const logMessage = `[${timestamp}] ${level}: ${message}`;
-    if (data) {
-        console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'log'](logMessage, data);
-    } else {
-        console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'log'](logMessage);
+    // Выводим в консоль только ошибки и предупреждения в production
+    if (ENABLE_ERROR_LOGS || ENABLE_DETAILED_LOGS) {
+        const logMessage = `[${timestamp}] ${level}: ${message}`;
+        if (data && (ENABLE_DETAILED_LOGS || level === 'ERROR')) {
+            console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'log'](logMessage, data);
+        } else if (level === 'ERROR' || level === 'WARN') {
+            console[level === 'ERROR' ? 'error' : 'warn'](logMessage);
+        }
     }
     
-    // Сохраняем в localStorage для отладки
-    try {
-        localStorage.setItem('debugLogs', JSON.stringify(debugLogs.slice(-20))); // Последние 20
-    } catch (e) {
-        // Игнорируем ошибки localStorage
+    // Сохраняем в localStorage только ошибки
+    if (level === 'ERROR') {
+        try {
+            const errorLogs = debugLogs.filter(log => log.level === 'ERROR').slice(-10);
+            localStorage.setItem('errorLogs', JSON.stringify(errorLogs));
+        } catch (e) {
+            // Игнорируем ошибки localStorage
+        }
     }
 }
 
@@ -1167,24 +1208,21 @@ function parseCSVLine(line) {
     return values;
 }
 
-// Функция парсинга CSV
+// Функция парсинга CSV (оптимизированная для мобильных)
 function parseCSV(csvText) {
-    console.log('Начинаем парсинг CSV...');
-    console.log('Длина CSV:', csvText.length);
+    if (ENABLE_DETAILED_LOGS) {
+        debugLog('INFO', 'Начинаем парсинг CSV', { length: csvText.length });
+    }
     
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
-        console.warn('CSV пустой');
+        debugLog('WARN', 'CSV пустой');
         return [];
     }
-    
-    console.log('Всего строк:', lines.length);
     
     // Парсим заголовки (первая строка)
     const headerLine = lines[0];
     const headers = parseCSVLine(headerLine).map(h => h.replace(/^"|"$/g, '').trim());
-    console.log('Заголовки:', headers);
-    console.log('Первые 5 заголовков:', headers.slice(0, 5));
     
     // Проверяем, что это действительно заголовки (содержат текстовые названия)
     // Если первая строка похожа на данные (только цифры), то это не заголовки
@@ -1201,13 +1239,16 @@ function parseCSV(csvText) {
     );
     
     if (!looksLikeHeaders && !isNaN(parseInt(firstHeader))) {
-        console.warn('Первая строка похожа на данные, а не заголовки. Пропускаем её.');
-        // Если первая строка - данные, используем индексы по умолчанию
-        // Но лучше попробовать найти строку с заголовками
+        debugLog('WARN', 'Первая строка похожа на данные, а не заголовки');
     }
     
-    // Создаем индекс колонок по названиям
+    // Создаем индекс колонок по названиям (кэшируем для производительности)
+    const columnIndexCache = {};
     const getColumnIndex = (name) => {
+        if (columnIndexCache[name] !== undefined) {
+            return columnIndexCache[name];
+        }
+        
         const index = headers.findIndex(h => h && h.toLowerCase() === name.toLowerCase());
         if (index < 0) {
             // Пробуем найти похожие названия
@@ -1215,12 +1256,11 @@ function parseCSV(csvText) {
                 h.toLowerCase().includes(name.toLowerCase()) ||
                 name.toLowerCase().includes(h.toLowerCase())
             ));
-            if (similar >= 0) {
-                console.log(`Найдена похожая колонка для "${name}": "${headers[similar]}" (индекс ${similar})`);
-                return similar;
-            }
+            columnIndexCache[name] = similar >= 0 ? similar : null;
+        } else {
+            columnIndexCache[name] = index;
         }
-        return index >= 0 ? index : null;
+        return columnIndexCache[name];
     };
     
     const cars = [];
@@ -1233,52 +1273,19 @@ function parseCSV(csvText) {
             // Парсим строку CSV
             const values = parseCSVLine(lines[i]);
             
-            // Функция для получения значения по названию колонки
+            // Функция для получения значения по названию колонки (оптимизированная)
             const getValue = (columnName) => {
                 const idx = getColumnIndex(columnName);
-                if (idx === null) {
-                    console.warn(`Колонка "${columnName}" не найдена. Доступные колонки:`, headers);
-                    return '';
-                }
-                if (idx >= values.length) {
-                    console.warn(`Индекс ${idx} для "${columnName}" выходит за пределы массива значений (длина: ${values.length})`);
+                if (idx === null || idx >= values.length) {
                     return '';
                 }
                 const value = (values[idx] || '').replace(/^"|"$/g, '').trim();
                 return value;
             };
             
-            // Для первой строки выводим отладочную информацию
-            if (i === 1) {
-                console.log('Первая строка данных:', values.slice(0, 10));
-                console.log('Заголовки:', headers.slice(0, 10));
-                console.log('Индексы колонок:', {
-                    mark: getColumnIndex('mark'),
-                    model: getColumnIndex('model'),
-                    price: getColumnIndex('price'),
-                    year: getColumnIndex('year'),
-                    km_age: getColumnIndex('km_age'),
-                    engine_type: getColumnIndex('engine_type'),
-                    transmission_type: getColumnIndex('transmission_type')
-                });
-            }
-            
             // Получаем данные по названиям колонок
             const brand = getValue('mark');
             const model = getValue('model');
-            
-            // Для первой строки выводим что получили
-            if (i === 1) {
-                console.log('Парсинг первой машины:', {
-                    brand,
-                    model,
-                    price: getValue('price'),
-                    year: getValue('year'),
-                    mileage: getValue('km_age'),
-                    fuel: getValue('engine_type'),
-                    transmission: getValue('transmission_type')
-                });
-            }
             
             // Пропускаем пустые строки
             if (!brand && !model) continue;
@@ -1343,15 +1350,10 @@ function parseCSV(csvText) {
                             photo_urls = photo_urls.filter(url => url && typeof url === 'string' && url.startsWith('http'));
                             if (photo_urls.length > 0) {
                                 photo_url = photo_urls[0];
-                                // Для первой машины логируем
-                                if (i === 1) {
-                                    console.log('Найдено фото:', photo_url.substring(0, 50) + '...');
-                                }
                             }
                         }
                     }
                 } catch (e) {
-                    console.warn(`Ошибка парсинга фото в строке ${i + 1}:`, e, 'Строка:', imagesStr.substring(0, 100));
                     // Если не JSON, пытаемся найти URL
                     const urlMatch = imagesStr.match(/https?:\/\/[^\s"\[\]]+/);
                     if (urlMatch) {
@@ -1410,15 +1412,17 @@ function parseCSV(csvText) {
             
             cars.push(car);
         } catch (error) {
-            console.warn(`Ошибка парсинга строки ${i + 1}:`, error, lines[i].substring(0, 100));
+            // Логируем только первые несколько ошибок
+            if (i < 5) {
+                debugLog('WARN', `Ошибка парсинга строки ${i + 1}`, { error: error.message });
+            }
             continue;
         }
     }
     
-    console.log(`Успешно распарсено ${cars.length} машин`);
-    if (cars.length > 0) {
-        console.log('Пример первой машины (полный объект):', cars[0]);
-        console.log('Первая машина - детали:', {
+    debugLog('INFO', `Успешно распарсено ${cars.length} машин`);
+    if (ENABLE_DETAILED_LOGS && cars.length > 0) {
+        debugLog('INFO', 'Пример первой машины', {
             id: cars[0].id,
             brand: cars[0].brand,
             model: cars[0].model,
@@ -1675,14 +1679,36 @@ async function loadCars(reset = true) {
 }
 
 // Добавление новых карточек (для пагинации)
+// Оптимизированное добавление карточек батчами
 function appendCars(cars) {
     const carsGrid = document.getElementById('carsGrid');
-    if (!carsGrid) return;
+    if (!carsGrid || cars.length === 0) return;
     
-    cars.forEach((car, index) => {
-        const card = createCarCard(car, carsData.length + index);
-        carsGrid.appendChild(card);
-    });
+    const BATCH_SIZE = 10; // Добавляем по 10 карточек за раз
+    let currentIndex = 0;
+    
+    function appendBatch() {
+        const endIndex = Math.min(currentIndex + BATCH_SIZE, cars.length);
+        
+        // Создаем DocumentFragment для быстрой вставки
+        const fragment = document.createDocumentFragment();
+        
+        for (let i = currentIndex; i < endIndex; i++) {
+            const card = createCarCard(cars[i], carsData.length + i);
+            fragment.appendChild(card);
+        }
+        
+        carsGrid.appendChild(fragment);
+        currentIndex = endIndex;
+        
+        // Если есть еще карточки, добавляем следующую партию
+        if (currentIndex < cars.length) {
+            requestAnimationFrame(appendBatch);
+        }
+    }
+    
+    // Начинаем добавление
+    appendBatch();
 }
 
 // Извлечение доступных фильтров из данных
@@ -1717,7 +1743,7 @@ function extractAvailableFilters() {
 // Обработчик прокрутки для автоматической загрузки
 let scrollTimeout = null;
 function handleScroll() {
-    // Throttle: проверяем не чаще чем раз в 200ms
+    // Throttle: проверяем не чаще чем раз в 500ms (увеличено для мобильных)
     if (scrollTimeout) return;
     
     scrollTimeout = setTimeout(() => {
@@ -1728,14 +1754,13 @@ function handleScroll() {
         const windowHeight = window.innerHeight;
         const documentHeight = document.documentElement.scrollHeight;
         
-        // Загружаем еще, если до конца осталось меньше 300px
-        if (documentHeight - (scrollTop + windowHeight) < 300) {
+        // Загружаем еще, если до конца осталось меньше 500px (увеличено для мобильных)
+        if (documentHeight - (scrollTop + windowHeight) < 500) {
             if (!isLoading && hasMore) {
-                console.log('Автоматическая загрузка при прокрутке');
                 loadMoreCars();
             }
         }
-    }, 200);
+    }, 500); // Увеличено с 200ms до 500ms для мобильных
 }
 
 // Загрузка еще машин (для автоматической загрузки при прокрутке)
