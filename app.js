@@ -601,100 +601,118 @@ function closeCarModal() {
 const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
 // URL к CSV экспорту Google Sheets
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/14cuDxW6YdKnf3cFd18JhnwQ5v4gnOKhrCTZDVo96VCc/export?format=csv&gid=1644141353';
+// Важно: Таблица должна быть опубликована для экспорта!
+// Инструкция: Файл → Опубликовать в интернете → CSV → Опубликовать
+// Попробуем несколько вариантов ссылок
+const CSV_URLS = [
+    'https://docs.google.com/spreadsheets/d/14cuDxW6YdKnf3cFd18JhnwQ5v4gnOKhrCTZDVo96VCc/export?format=csv&gid=0', // Первый лист
+    'https://docs.google.com/spreadsheets/d/14cuDxW6YdKnf3cFd18JhnwQ5v4gnOKhrCTZDVo96VCc/export?format=csv', // Без gid
+    'https://docs.google.com/spreadsheets/d/14cuDxW6YdKnf3cFd18JhnwQ5v4gnOKhrCTZDVo96VCc/export?format=csv&gid=1644141353' // С gid из URL
+];
+let currentCSVUrlIndex = 0;
+const CSV_URL = CSV_URLS[currentCSVUrlIndex];
 
 // Кэш для всех машин
 let allCarsData = [];
 let csvCacheTime = 0;
 const CSV_CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
+// Функция парсинга CSV строки (правильная обработка кавычек и запятых)
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        
+        if (char === '"') {
+            if (inQuotes && line[j + 1] === '"') {
+                current += '"';
+                j++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    values.push(current.trim());
+    
+    return values;
+}
+
 // Функция парсинга CSV
 function parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length === 0) return [];
+    console.log('Начинаем парсинг CSV...');
+    console.log('Длина CSV:', csvText.length);
     
-    // Парсим заголовки
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const lines = csvText.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+        console.warn('CSV пустой');
+        return [];
+    }
+    
+    console.log('Всего строк:', lines.length);
+    
+    // Парсим заголовки (первая строка)
+    const headerLine = lines[0];
+    const headers = parseCSVLine(headerLine).map(h => h.replace(/^"|"$/g, ''));
+    console.log('Заголовки:', headers.slice(0, 10), '... (показано первые 10)');
     
     const cars = [];
     
+    // Парсим данные (начиная со второй строки)
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         
         try {
-            // Парсим строку CSV (учитываем кавычки и запятые внутри значений)
-            const values = [];
-            let current = '';
-            let inQuotes = false;
+            // Парсим строку CSV
+            const values = parseCSVLine(lines[i]);
             
-            for (let j = 0; j < lines[i].length; j++) {
-                const char = lines[i][j];
-                
-                if (char === '"') {
-                    if (inQuotes && lines[i][j + 1] === '"') {
-                        current += '"';
-                        j++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    values.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            values.push(current.trim()); // Последнее значение
-            
-            // Создаем объект машины
-            const row = {};
-            headers.forEach((header, index) => {
-                let value = values[index] || '';
-                // Убираем кавычки если есть
-                if (value.startsWith('"') && value.endsWith('"')) {
-                    value = value.slice(1, -1);
-                }
-                row[header] = value;
-            });
-            
-            // Парсим данные из колонок
-            const brand = (row['B'] || '').trim();
-            const model = (row['C'] || '').trim();
+            // Создаем объект машины по индексам колонок
+            // Колонки: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9, K=10, L=11, M=12, ..., U=20, V=21, Y=24
+            const brand = (values[1] || '').replace(/^"|"$/g, '').trim(); // B (индекс 1)
+            const model = (values[2] || '').replace(/^"|"$/g, '').trim(); // C (индекс 2)
             
             // Пропускаем пустые строки
             if (!brand && !model) continue;
             
-            // Парсим цену (колонка I)
+            // Парсим цену (колонка I, индекс 8)
             let price = null;
-            const priceStr = (row['I'] || '').trim();
+            const priceStr = (values[8] || '').replace(/^"|"$/g, '').trim();
             if (priceStr) {
                 const priceNum = parseInt(priceStr.replace(/[\s,.]/g, ''));
-                if (!isNaN(priceNum)) price = priceNum;
+                if (!isNaN(priceNum) && priceNum > 0) price = priceNum;
             }
             
-            // Парсим пробег (колонка J)
+            // Парсим пробег (колонка J, индекс 9)
             let mileage = null;
-            const mileageStr = (row['J'] || '').trim();
+            const mileageStr = (values[9] || '').replace(/^"|"$/g, '').trim();
             if (mileageStr) {
                 const mileageNum = parseInt(mileageStr.replace(/[\s,.]/g, ''));
-                if (!isNaN(mileageNum)) mileage = mileageNum;
+                if (!isNaN(mileageNum) && mileageNum > 0) mileage = mileageNum;
             }
             
-            // Парсим год (колонка Y - формат "202012")
+            // Парсим год (колонка Y, индекс 24 - формат "202012")
             let year = null;
-            const yearStr = (row['Y'] || '').trim();
+            const yearStr = (values[24] || '').replace(/^"|"$/g, '').trim();
             if (yearStr) {
                 if (yearStr.length === 6) {
                     year = parseInt(yearStr.substring(0, 4));
                 } else if (yearStr.length >= 4) {
                     year = parseInt(yearStr.substring(0, 4));
                 }
+                if (isNaN(year) || year < 1900 || year > 2100) year = null;
             }
             
-            // Парсим фото (колонка V - JSON массив)
+            // Парсим фото (колонка V, индекс 21 - JSON массив)
             let photo_url = null;
             let photo_urls = [];
-            const photosStr = (row['V'] || '').trim();
+            const photosStr = (values[21] || '').replace(/^"|"$/g, '').trim();
             if (photosStr) {
                 try {
                     // Пытаемся распарсить как JSON
@@ -711,13 +729,25 @@ function parseCSV(csvText) {
                     }
                 } catch (e) {
                     // Если не JSON, пытаемся найти URL
-                    const urlMatch = photosStr.match(/https?:\/\/[^\s"]+/);
+                    const urlMatch = photosStr.match(/https?:\/\/[^\s"\[\]]+/);
                     if (urlMatch) {
                         photo_url = urlMatch[0];
                         photo_urls = [photo_url];
                     }
                 }
             }
+            
+            // Топливо (колонка K, индекс 10)
+            const fuel = (values[10] || '').replace(/^"|"$/g, '').trim();
+            
+            // Коробка (колонка L, индекс 11)
+            const transmission = (values[11] || '').replace(/^"|"$/g, '').trim();
+            
+            // Тип (колонка M, индекс 12)
+            const type = (values[12] || '').replace(/^"|"$/g, '').trim();
+            
+            // Описание (колонка U, индекс 20)
+            const description = (values[20] || '').replace(/^"|"$/g, '').substring(0, 500).trim();
             
             const car = {
                 id: `car_${i}`,
@@ -726,22 +756,23 @@ function parseCSV(csvText) {
                 year: year,
                 price: price,
                 mileage: mileage,
-                transmission: (row['L'] || '').trim(),
-                fuel: (row['K'] || '').trim(),
+                transmission: transmission,
+                fuel: fuel,
                 category: price && price < 5000000 ? 'deal' : 'premium',
-                description: (row['U'] || '').substring(0, 500),
+                description: description,
                 photo_url: photo_url,
                 photo_urls: photo_urls,
-                type: (row['M'] || '').trim()
+                type: type
             };
             
             cars.push(car);
         } catch (error) {
-            console.warn(`Ошибка парсинга строки ${i}:`, error);
+            console.warn(`Ошибка парсинга строки ${i + 1}:`, error, lines[i].substring(0, 100));
             continue;
         }
     }
     
+    console.log(`Успешно распарсено ${cars.length} машин`);
     return cars;
 }
 
@@ -769,23 +800,84 @@ async function loadCars(reset = true) {
         if (reset && allCarsData.length > 0 && (now - csvCacheTime) < CSV_CACHE_TTL) {
             console.log('Используем кэшированные данные');
         } else {
-            // Загружаем CSV из Google Sheets
-            const response = await fetch(CSV_URL);
+            console.log('Загружаем CSV из Google Sheets...', CSV_URL);
             
-            if (!response.ok) {
-                throw new Error(`Ошибка загрузки CSV: ${response.status}`);
+            // Пробуем загрузить CSV (можем попробовать несколько ссылок)
+            let response;
+            let csvText;
+            let success = false;
+            
+            for (let i = 0; i < CSV_URLS.length; i++) {
+                try {
+                    console.log(`Попытка ${i + 1}: загрузка с URL`, CSV_URLS[i]);
+                    response = await fetch(CSV_URLS[i]);
+                    
+                    if (response.ok) {
+                        csvText = await response.text();
+                        if (csvText && csvText.trim().length > 0) {
+                            currentCSVUrlIndex = i;
+                            success = true;
+                            console.log(`✅ Успешно загружено с URL ${i + 1}`);
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Ошибка при загрузке с URL ${i + 1}:`, e);
+                    continue;
+                }
             }
             
-            const csvText = await response.text();
+            if (!success) {
+                const errorText = response ? await response.text() : 'Нет ответа';
+                console.error('Ошибка загрузки CSV:', errorText.substring(0, 200));
+                throw new Error(`Не удалось загрузить CSV. Убедитесь, что таблица опубликована для экспорта (Файл → Опубликовать в интернете → CSV).`);
+            }
+            
+            console.log('CSV загружен, длина:', csvText.length);
+            console.log('Первые 500 символов:', csvText.substring(0, 500));
+            
+            if (!csvText || csvText.trim().length === 0) {
+                throw new Error('CSV файл пустой');
+            }
             
             // Парсим CSV
             allCarsData = parseCSV(csvText);
             csvCacheTime = now;
             
-            console.log(`Загружено ${allCarsData.length} машин из CSV`);
+            if (allCarsData.length === 0) {
+                console.warn('Не удалось распарсить ни одной машины из CSV');
+                if (carsGrid) {
+                    carsGrid.innerHTML = `
+                        <div class="error-message">
+                            <p>Не удалось загрузить данные</p>
+                            <p class="error-hint">CSV файл пустой или имеет неправильный формат. Проверьте консоль браузера для деталей.</p>
+                            <button onclick="loadCars(true)" class="retry-btn">Повторить</button>
+                        </div>
+                    `;
+                }
+                isLoading = false;
+                return;
+            }
+            
+            console.log(`✅ Загружено ${allCarsData.length} машин из CSV`);
             
             // Извлекаем доступные фильтры
             extractAvailableFilters();
+        }
+        
+        // Проверяем что есть данные
+        if (allCarsData.length === 0) {
+            console.warn('Нет данных для отображения');
+            if (carsGrid) {
+                carsGrid.innerHTML = `
+                    <div class="error-message">
+                        <p>Нет данных</p>
+                        <button onclick="loadCars(true)" class="retry-btn">Повторить</button>
+                    </div>
+                `;
+            }
+            isLoading = false;
+            return;
         }
         
         // Применяем фильтры
