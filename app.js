@@ -672,10 +672,42 @@ function parseCSV(csvText) {
     const headerLine = lines[0];
     const headers = parseCSVLine(headerLine).map(h => h.replace(/^"|"$/g, '').trim());
     console.log('Заголовки:', headers);
+    console.log('Первые 5 заголовков:', headers.slice(0, 5));
+    
+    // Проверяем, что это действительно заголовки (содержат текстовые названия)
+    // Если первая строка похожа на данные (только цифры), то это не заголовки
+    const firstHeader = headers[0] || '';
+    const looksLikeHeaders = headers.some(h => 
+        h && (
+            h.toLowerCase().includes('mark') || 
+            h.toLowerCase().includes('model') || 
+            h.toLowerCase().includes('price') ||
+            h.toLowerCase().includes('year') ||
+            h.toLowerCase().includes('id') ||
+            h.toLowerCase().includes('url')
+        )
+    );
+    
+    if (!looksLikeHeaders && !isNaN(parseInt(firstHeader))) {
+        console.warn('Первая строка похожа на данные, а не заголовки. Пропускаем её.');
+        // Если первая строка - данные, используем индексы по умолчанию
+        // Но лучше попробовать найти строку с заголовками
+    }
     
     // Создаем индекс колонок по названиям
     const getColumnIndex = (name) => {
-        const index = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        const index = headers.findIndex(h => h && h.toLowerCase() === name.toLowerCase());
+        if (index < 0) {
+            // Пробуем найти похожие названия
+            const similar = headers.findIndex(h => h && (
+                h.toLowerCase().includes(name.toLowerCase()) ||
+                name.toLowerCase().includes(h.toLowerCase())
+            ));
+            if (similar >= 0) {
+                console.log(`Найдена похожая колонка для "${name}": "${headers[similar]}" (индекс ${similar})`);
+                return similar;
+            }
+        }
         return index >= 0 ? index : null;
     };
     
@@ -692,13 +724,49 @@ function parseCSV(csvText) {
             // Функция для получения значения по названию колонки
             const getValue = (columnName) => {
                 const idx = getColumnIndex(columnName);
-                if (idx === null || idx >= values.length) return '';
-                return (values[idx] || '').replace(/^"|"$/g, '').trim();
+                if (idx === null) {
+                    console.warn(`Колонка "${columnName}" не найдена. Доступные колонки:`, headers);
+                    return '';
+                }
+                if (idx >= values.length) {
+                    console.warn(`Индекс ${idx} для "${columnName}" выходит за пределы массива значений (длина: ${values.length})`);
+                    return '';
+                }
+                const value = (values[idx] || '').replace(/^"|"$/g, '').trim();
+                return value;
             };
+            
+            // Для первой строки выводим отладочную информацию
+            if (i === 1) {
+                console.log('Первая строка данных:', values.slice(0, 10));
+                console.log('Заголовки:', headers.slice(0, 10));
+                console.log('Индексы колонок:', {
+                    mark: getColumnIndex('mark'),
+                    model: getColumnIndex('model'),
+                    price: getColumnIndex('price'),
+                    year: getColumnIndex('year'),
+                    km_age: getColumnIndex('km_age'),
+                    engine_type: getColumnIndex('engine_type'),
+                    transmission_type: getColumnIndex('transmission_type')
+                });
+            }
             
             // Получаем данные по названиям колонок
             const brand = getValue('mark');
             const model = getValue('model');
+            
+            // Для первой строки выводим что получили
+            if (i === 1) {
+                console.log('Парсинг первой машины:', {
+                    brand,
+                    model,
+                    price: getValue('price'),
+                    year: getValue('year'),
+                    mileage: getValue('km_age'),
+                    fuel: getValue('engine_type'),
+                    transmission: getValue('transmission_type')
+                });
+            }
             
             // Пропускаем пустые строки
             if (!brand && !model) continue;
@@ -833,7 +901,18 @@ function parseCSV(csvText) {
     
     console.log(`Успешно распарсено ${cars.length} машин`);
     if (cars.length > 0) {
-        console.log('Пример первой машины:', cars[0]);
+        console.log('Пример первой машины (полный объект):', cars[0]);
+        console.log('Первая машина - детали:', {
+            id: cars[0].id,
+            brand: cars[0].brand,
+            model: cars[0].model,
+            year: cars[0].year,
+            price: cars[0].price,
+            mileage: cars[0].mileage,
+            transmission: cars[0].transmission,
+            fuel: cars[0].fuel,
+            photo_url: cars[0].photo_url ? cars[0].photo_url.substring(0, 50) + '...' : 'нет'
+        });
     }
     return cars;
 }
