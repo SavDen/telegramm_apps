@@ -322,43 +322,43 @@ function createCarCard(car, index) {
     }
     
     const imageClass = hasPhoto ? 'car-image has-photo' : 'car-image';
-    
-    card.innerHTML = `
+        
+        card.innerHTML = `
         <div class="${imageClass}">
             ${photoHTML}
         </div>
-        <div class="car-info">
+            <div class="car-info">
             <div class="car-title">${car.brand || ''} ${car.model || ''}</div>
             <div class="car-year">${car.year || ''} ${car.year ? 'год' : ''}${car.configuration ? ` · ${car.configuration}` : ''}</div>
             <div class="car-price ${getCarCategory(car) === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
-            <div class="car-specs">
-                <div class="car-spec-item">
-                    <span>📏</span>
+                <div class="car-specs">
+                    <div class="car-spec-item">
+                        <span>📏</span>
                     <span>${(car.mileage || 0).toLocaleString()} км</span>
-                </div>
-                <div class="car-spec-item">
-                    <span>⚙️</span>
+                    </div>
+                    <div class="car-spec-item">
+                        <span>⚙️</span>
                     <span>${car.transmission || ''}</span>
-                </div>
-                <div class="car-spec-item">
-                    <span>⛽</span>
+                    </div>
+                    <div class="car-spec-item">
+                        <span>⛽</span>
                     <span>${car.fuel || ''}</span>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-    
+        `;
+        
     // Обработчик клика на карточку
     card.addEventListener('click', () => {
         openCarModal(car.id);
     });
-    
-    // Анимация появления с задержкой
-    setTimeout(() => {
-        card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
-    }, index * 100);
+        
+        // Анимация появления с задержкой
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
     
     return card;
 }
@@ -445,7 +445,7 @@ function applyFilters() {
         if (currentCategory) {
             const carCategory = getCarCategory(car);
             if (carCategory !== currentCategory) {
-                return false;
+            return false;
             }
         }
         
@@ -1715,6 +1715,24 @@ async function loadAvailableFilters() {
 // Функция updateLoadMoreButton удалена - теперь используется автоматическая загрузка при прокрутке
 
 // Обработка контакта по автомобилю
+// Функция для показа кастомного уведомления
+function showNotification(message, duration = 3000) {
+    const notification = document.getElementById('customNotification');
+    const notificationText = notification.querySelector('.custom-notification-text');
+    
+    if (!notification || !notificationText) {
+        console.warn('Элемент уведомления не найден');
+        return;
+    }
+    
+    notificationText.textContent = message;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, duration);
+}
+
 async function handleContact(carId) {
     console.log('handleContact вызвана для carId:', carId);
     
@@ -1738,7 +1756,7 @@ async function handleContact(carId) {
     
     // Валидация
     if (!question) {
-        alert('Пожалуйста, задайте вопрос о машине');
+        showNotification('Пожалуйста, задайте вопрос о машине', 3000);
         if (questionInput) {
             questionInput.focus();
         }
@@ -1746,7 +1764,7 @@ async function handleContact(carId) {
     }
     
     if (contactMethod === 'whatsapp' && !phone) {
-        alert('Для связи через WhatsApp необходимо указать номер телефона');
+        showNotification('Для связи через WhatsApp необходимо указать номер телефона', 3000);
         if (phoneInput) {
             phoneInput.focus();
         }
@@ -1788,7 +1806,7 @@ async function handleContact(carId) {
     }
     
     // Формируем данные для отправки
-    const requestData = {
+        const requestData = {
         car: {
             id: car.id,
             brand: car.brand,
@@ -1806,56 +1824,9 @@ async function handleContact(carId) {
         question: question,
         phone: phone || null, // Номер телефона (если указан)
         contactMethod: contactMethod, // 'whatsapp' или 'telegram'
-        timestamp: new Date().toISOString()
-    };
-    
-    // ТЕСТОВЫЙ РЕЖИМ: Показываем alert с данными вместо отправки на сервер
-    // TODO: Убрать после настройки бэкенда
-    
-    // Форматируем данные для отображения
-    const displayData = {
-        '🚗 Автомобиль': `${car.brand} ${car.model}${car.year ? ` (${car.year} год)` : ''}`,
-        '💰 Цена': formattedPrice,
-        '📏 Пробег': `${(car.mileage || 0).toLocaleString()} км`,
-        '⚙️ Коробка': car.transmission || 'Не указано',
-        '⛽ Топливо': car.fuel || 'Не указано',
-        '🔗 Ссылка на объявление': car.link || 'Не указано',
-        '📱 Метод связи': contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telegram',
-        '📞 Номер телефона': phone || 'Не указан',
-        '👤 Пользователь': userData.firstName && userData.lastName 
-            ? `${userData.firstName} ${userData.lastName}${userData.username ? ` (@${userData.username})` : ''}` 
-            : userData.username ? `@${userData.username}` : `ID: ${userData.userId || 'Не указано'}`,
-        '🔗 Ссылка на Telegram': userData.userLink || 'Не указано',
-        '❓ Вопрос': question
-    };
-    
-    // Формируем текст для alert
-    let alertText = '📋 Данные для отправки:\n\n';
-    for (const [key, value] of Object.entries(displayData)) {
-        alertText += `${key}: ${value}\n`;
-    }
-    alertText += '\n━━━━━━━━━━━━━━━━━━━━\n';
-    alertText += '⚠️ Это тестовый режим.\n';
-    alertText += 'После настройки бэкенда данные будут отправляться автоматически.';
-    
-    console.log('Показываем alert с данными...');
-    console.log('Текст alert:', alertText);
-    alert(alertText);
-    console.log('Alert показан');
-    
-    // Очищаем форму
-    if (questionInput) questionInput.value = '';
-    if (phoneInput) phoneInput.value = '';
-    
-    // Закрываем модальное окно
-    closeCarModal();
-    
-    // Логируем данные в консоль для отладки
-    console.log('Данные для отправки:', requestData);
-    
-    /* 
-    // РАСКОММЕНТИРОВАТЬ ПОСЛЕ НАСТРОЙКИ БЭКЕНДА:
-    
+            timestamp: new Date().toISOString()
+        };
+        
     // Показываем индикатор загрузки
     const contactBtn = document.getElementById('modalContactBtn');
     const originalText = contactBtn ? contactBtn.textContent : '';
@@ -1865,6 +1836,12 @@ async function handleContact(carId) {
     }
     
     try {
+        console.log('Отправка запроса на сервер...', {
+            url: `${SERVER_URL}/api/webapp/contact`,
+            carId: car.id,
+            contactMethod: contactMethod
+        });
+        
         // ЕДИНСТВЕННОЕ место, где используется бэкенд - отправка сообщения менеджеру
         const response = await fetch(`${SERVER_URL}/api/webapp/contact`, {
             method: 'POST',
@@ -1875,32 +1852,61 @@ async function handleContact(carId) {
         });
         
         if (!response.ok) {
-            console.warn('Бэкенд недоступен, но это не критично для работы приложения');
-            throw new Error(`Ошибка ${response.status}`);
+            const errorText = await response.text();
+            console.error('Ошибка ответа сервера:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+            });
+            throw new Error(`Ошибка ${response.status}: ${response.statusText}`);
         }
         
         const result = await response.json();
         
         if (result.success) {
-            alert('Спасибо! Ваш запрос отправлен. Мы свяжемся с вами в ближайшее время.');
+            console.log('✅ Запрос успешно отправлен:', {
+                carId: car.id,
+                userId: userData.userId,
+                contactMethod: contactMethod,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Показываем кастомное уведомление
+            showNotification('✅ Ваша заявка отправлена! Мы свяжемся с вами в ближайшее время.', 4000);
+            
             // Очищаем форму
             if (questionInput) questionInput.value = '';
             if (phoneInput) phoneInput.value = '';
-            // Закрываем модальное окно
-            closeCarModal();
+            
+            // Сбрасываем выбор метода связи на WhatsApp
+            const whatsappRadio = document.querySelector('input[name="contactMethod"][value="whatsapp"]');
+            if (whatsappRadio) {
+                whatsappRadio.checked = true;
+            }
+            
+            // Закрываем модальное окно с небольшой задержкой для показа уведомления
+            setTimeout(() => {
+                closeCarModal();
+            }, 500);
         } else {
             throw new Error(result.error || 'Ошибка при отправке');
         }
     } catch (error) {
-        console.error('Ошибка отправки сообщения менеджеру:', error);
-        alert('Произошла ошибка при отправке сообщения. Попробуйте позже или свяжитесь с нами напрямую.');
+        console.error('❌ Ошибка отправки сообщения менеджеру:', {
+            error: error.message,
+            stack: error.stack,
+            carId: car.id,
+            userId: userData.userId,
+            timestamp: new Date().toISOString()
+        });
+        
+        showNotification('❌ Произошла ошибка при отправке. Попробуйте позже или свяжитесь с нами напрямую.', 4000);
     } finally {
         if (contactBtn) {
             contactBtn.disabled = false;
             contactBtn.textContent = originalText;
         }
     }
-    */
 }
 
 // Инициализация приложения

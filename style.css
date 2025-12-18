@@ -1596,3 +1596,94 @@ body {
     cursor: not-allowed;
 }
 
+/* Кастомное уведомление */
+.custom-notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(79, 172, 254, 0.4);
+    z-index: 10000;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 280px;
+    max-width: 90%;
+    pointer-events: none;
+}
+
+.custom-notification.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+
+.custom-notification-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.custom-notification-icon {
+    font-size: 24px;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.2);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.custom-notification-text {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Скрытие scrollbar для Telegram Web App */
+html {
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE и Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+body {
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE и Edge */
+}
+
+body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.container {
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE и Edge */
+}
+
+.container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.results-section {
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE и Edge */
+}
+
+.results-section::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
