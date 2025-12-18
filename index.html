@@ -77,7 +77,10 @@
             </button>
         </div>
         <div class="car-detail-content">
-            <div id="modalCarImage" class="modal-car-image"></div>
+            <div id="modalCarImage" class="modal-car-image">
+                <img id="modalCarPhoto" class="modal-car-photo" src="" alt="" style="display: none;">
+                <div class="modal-car-image-placeholder">🚗</div>
+            </div>
             <div class="modal-car-info">
                 <h2 id="modalCarTitle" class="modal-car-title"></h2>
                 <div id="modalCarYear" class="modal-car-year"></div>
@@ -117,9 +120,57 @@
                         </div>
                     </div>
                 </div>
-                <button id="modalContactBtn" class="modal-contact-btn">
-                    Связаться по этой машине
-                </button>
+                
+                <!-- Форма связи -->
+                <div class="contact-form">
+                    <h3 class="contact-form-title">Связаться по этой машине</h3>
+                    
+                    <!-- Переключатель метода связи -->
+                    <div class="contact-method-selector">
+                        <label class="contact-method-option">
+                            <input type="radio" name="contactMethod" value="whatsapp" checked>
+                            <span class="contact-method-icon">📱</span>
+                            <span class="contact-method-text">WhatsApp</span>
+                        </label>
+                        <label class="contact-method-option">
+                            <input type="radio" name="contactMethod" value="telegram">
+                            <span class="contact-method-icon">✈️</span>
+                            <span class="contact-method-text">Telegram</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Поле вопроса -->
+                    <div class="form-group">
+                        <label class="form-label">Ваш вопрос <span class="required">*</span></label>
+                        <textarea 
+                            id="modalQuestion" 
+                            class="form-textarea" 
+                            placeholder="Задайте вопрос о машине..."
+                            rows="4"
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Поле номера телефона -->
+                    <div class="form-group" id="phoneGroup">
+                        <label class="form-label">
+                            Номер телефона 
+                            <span class="required" id="phoneRequired">*</span>
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="modalPhone" 
+                            class="form-input" 
+                            placeholder="+7 (999) 123-45-67"
+                            required
+                        >
+                    </div>
+                    
+                    <!-- Кнопка отправки -->
+                    <button id="modalContactBtn" class="modal-contact-btn">
+                        Отправить запрос
+                    </button>
+                </div>
             </div>
         </div>
     </div>

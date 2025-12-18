@@ -147,28 +147,12 @@ function createCarCard(car, index) {
                     <span>${car.fuel || ''}</span>
                 </div>
             </div>
-            <div class="car-question-section" onclick="event.stopPropagation();">
-                <textarea 
-                    class="car-question-input" 
-                    id="question-${car.id}" 
-                    placeholder="Задайте вопрос о машине..."
-                    rows="2"
-                ></textarea>
-                <button 
-                    class="contact-btn" 
-                    onclick="event.stopPropagation(); handleContact('${car.id}')"
-                >
-                    Связаться по этой машине
-                </button>
-            </div>
         </div>
     `;
     
     // Обработчик клика на карточку
-    card.addEventListener('click', (e) => {
-        if (!e.target.closest('.contact-btn') && !e.target.closest('.car-question-section')) {
-            openCarModal(car.id);
-        }
+    card.addEventListener('click', () => {
+        openCarModal(car.id);
     });
     
     // Анимация появления с задержкой
@@ -548,7 +532,12 @@ function openCarModal(carId) {
     const modal = document.getElementById('carModal');
     if (!modal) return;
     
-    const formattedPrice = formatPrice(car.price, currentCurrency);
+    // Форматируем цену
+    let formattedPrice = 'Цена не указана';
+    if (car.price && car.price > 0) {
+        formattedPrice = formatPrice(car.price, currentCurrency);
+    }
+    
     const categoryNames = {
         'premium': 'Премиум',
         'family': 'Семейные',
@@ -557,27 +546,123 @@ function openCarModal(carId) {
     };
     
     // Заполняем модальное окно данными
-    document.getElementById('modalCarTitle').textContent = `${car.brand} ${car.model}`;
-    document.getElementById('modalCarYear').textContent = `${car.year} год`;
+    document.getElementById('modalCarTitle').textContent = `${car.brand || ''} ${car.model || ''}`;
+    document.getElementById('modalCarYear').textContent = `${car.year || ''} ${car.year ? 'год' : ''}${car.configuration ? ` · ${car.configuration}` : ''}`;
+    
     const modalPriceElement = document.getElementById('modalCarPrice');
     modalPriceElement.textContent = formattedPrice;
-    // Добавляем класс для зеленого цвета, если категория "deal"
     if (car.category === 'deal') {
         modalPriceElement.classList.add('car-price-deal');
     } else {
         modalPriceElement.classList.remove('car-price-deal');
     }
-    document.getElementById('modalCarDescription').textContent = car.description;
-    document.getElementById('modalCarMileage').textContent = `${car.mileage.toLocaleString()} км`;
-    document.getElementById('modalCarTransmission').textContent = car.transmission;
-    document.getElementById('modalCarFuel').textContent = car.fuel;
-    document.getElementById('modalCarCategory').textContent = categoryNames[car.category] || car.category;
     
-    // Обновляем обработчик кнопки связи
+    document.getElementById('modalCarDescription').textContent = car.description || 'Описание отсутствует';
+    document.getElementById('modalCarMileage').textContent = `${(car.mileage || 0).toLocaleString()} км`;
+    document.getElementById('modalCarTransmission').textContent = car.transmission || 'Не указано';
+    document.getElementById('modalCarFuel').textContent = car.fuel || 'Не указано';
+    document.getElementById('modalCarCategory').textContent = categoryNames[car.category] || car.category || 'Не указано';
+    
+    // Заполняем фото
+    const modalPhoto = document.getElementById('modalCarPhoto');
+    const modalImageContainer = document.getElementById('modalCarImage');
+    const modalImagePlaceholder = document.querySelector('.modal-car-image-placeholder');
+    
+    if (car.photo_url) {
+        modalPhoto.src = car.photo_url;
+        modalPhoto.alt = `${car.brand} ${car.model}`;
+        modalPhoto.style.display = 'block';
+        if (modalImageContainer) {
+            modalImageContainer.classList.add('has-photo');
+        }
+        if (modalImagePlaceholder) {
+            modalImagePlaceholder.style.display = 'none';
+        }
+        modalPhoto.onerror = () => {
+            modalPhoto.style.display = 'none';
+            if (modalImageContainer) {
+                modalImageContainer.classList.remove('has-photo');
+            }
+            if (modalImagePlaceholder) {
+                modalImagePlaceholder.style.display = 'flex';
+            }
+        };
+    } else {
+        modalPhoto.style.display = 'none';
+        if (modalImageContainer) {
+            modalImageContainer.classList.remove('has-photo');
+        }
+        if (modalImagePlaceholder) {
+            modalImagePlaceholder.style.display = 'flex';
+        }
+    }
+    
+    // Очищаем форму
+    document.getElementById('modalQuestion').value = '';
+    document.getElementById('modalPhone').value = '';
+    
+    // Настраиваем переключатель метода связи
+    const phoneInput = document.getElementById('modalPhone');
+    const phoneRequired = document.getElementById('phoneRequired');
+    
+    // Функция обновления состояния переключателя
+    const updateContactMethod = () => {
+        const contactMethodRadios = document.querySelectorAll('input[name="contactMethod"]');
+        const selectedMethod = Array.from(contactMethodRadios).find(r => r.checked);
+        const method = selectedMethod ? selectedMethod.value : 'whatsapp';
+        
+        // Обновляем визуальное состояние
+        contactMethodRadios.forEach(r => {
+            const option = r.closest('.contact-method-option');
+            if (option) {
+                if (r.checked) {
+                    option.classList.add('checked');
+                } else {
+                    option.classList.remove('checked');
+                }
+            }
+        });
+        
+        // Обновляем требования к телефону
+        if (method === 'whatsapp') {
+            phoneInput.required = true;
+            phoneRequired.style.display = 'inline';
+        } else {
+            phoneInput.required = false;
+            phoneRequired.style.display = 'none';
+        }
+    };
+    
+    // Используем делегирование событий на контейнере формы
+    const contactForm = document.querySelector('.contact-form');
+    if (contactForm) {
+        // Удаляем старый обработчик если есть
+        const oldHandler = contactForm._contactMethodHandler;
+        if (oldHandler) {
+            contactForm.removeEventListener('change', oldHandler);
+        }
+        
+        // Создаем новый обработчик
+        const handler = (e) => {
+            if (e.target.name === 'contactMethod') {
+                updateContactMethod();
+            }
+        };
+        contactForm.addEventListener('change', handler);
+        contactForm._contactMethodHandler = handler;
+    }
+    
+    // Устанавливаем WhatsApp по умолчанию
+    const whatsappRadio = document.querySelector('input[name="contactMethod"][value="whatsapp"]');
+    if (whatsappRadio) {
+        whatsappRadio.checked = true;
+    }
+    updateContactMethod();
+    
+    // Обновляем обработчик кнопки отправки
     const modalContactBtn = document.getElementById('modalContactBtn');
     if (modalContactBtn) {
         modalContactBtn.onclick = () => {
-            closeCarModal();
             handleContact(carId);
         };
     }
@@ -1178,14 +1263,29 @@ async function handleContact(carId) {
     const car = carsData.find(c => c.id === carId);
     if (!car) return;
     
-    // Получаем вопрос пользователя
-    const questionInput = document.getElementById(`question-${carId}`);
-    const question = questionInput ? questionInput.value.trim() : '';
+    // Получаем данные из формы
+    const questionInput = document.getElementById('modalQuestion');
+    const phoneInput = document.getElementById('modalPhone');
+    const contactMethodRadios = document.querySelectorAll('input[name="contactMethod"]');
     
+    const question = questionInput ? questionInput.value.trim() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const selectedMethod = Array.from(contactMethodRadios).find(r => r.checked);
+    const contactMethod = selectedMethod ? selectedMethod.value : 'whatsapp';
+    
+    // Валидация
     if (!question) {
         alert('Пожалуйста, задайте вопрос о машине');
         if (questionInput) {
             questionInput.focus();
+        }
+        return;
+    }
+    
+    if (contactMethod === 'whatsapp' && !phone) {
+        alert('Для связи через WhatsApp необходимо указать номер телефона');
+        if (phoneInput) {
+            phoneInput.focus();
         }
         return;
     }
@@ -1216,13 +1316,14 @@ async function handleContact(carId) {
         }
     }
     
-    // Формируем ссылку на объявление
-    const carLink = `${window.location.origin}${window.location.pathname}?car=${carId}`;
-    
-    const formattedPrice = formatPrice(car.price, currentCurrency);
+    // Форматируем цену
+    let formattedPrice = 'Цена не указана';
+    if (car.price && car.price > 0) {
+        formattedPrice = formatPrice(car.price, currentCurrency);
+    }
     
     // Формируем данные для отправки
-        const requestData = {
+    const requestData = {
         car: {
             id: car.id,
             brand: car.brand,
@@ -1234,16 +1335,18 @@ async function handleContact(carId) {
             transmission: car.transmission,
             fuel: car.fuel,
             category: car.category,
-            link: carLink
+            link: car.link || '' // URL из базы данных
         },
         user: userData,
         question: question,
-            timestamp: new Date().toISOString()
-        };
-        
+        phone: phone || null, // Номер телефона (если указан)
+        contactMethod: contactMethod, // 'whatsapp' или 'telegram'
+        timestamp: new Date().toISOString()
+    };
+    
     // Показываем индикатор загрузки
-    const contactBtn = document.querySelector(`#question-${carId}`)?.nextElementSibling;
-    const originalText = contactBtn?.textContent;
+    const contactBtn = document.getElementById('modalContactBtn');
+    const originalText = contactBtn ? contactBtn.textContent : '';
     if (contactBtn) {
         contactBtn.disabled = true;
         contactBtn.textContent = 'Отправка...';
@@ -1260,7 +1363,6 @@ async function handleContact(carId) {
         });
         
         if (!response.ok) {
-            // Если бэкенд недоступен, не критично - просто показываем сообщение
             console.warn('Бэкенд недоступен, но это не критично для работы приложения');
             throw new Error(`Ошибка ${response.status}`);
         }
@@ -1268,17 +1370,17 @@ async function handleContact(carId) {
         const result = await response.json();
         
         if (result.success) {
-            alert('Спасибо! Ваш вопрос отправлен. Мы свяжемся с вами в ближайшее время.');
-            // Очищаем поле вопроса
-            if (questionInput) {
-                questionInput.value = '';
-            }
+            alert('Спасибо! Ваш запрос отправлен. Мы свяжемся с вами в ближайшее время.');
+            // Очищаем форму
+            if (questionInput) questionInput.value = '';
+            if (phoneInput) phoneInput.value = '';
+            // Закрываем модальное окно
+            closeCarModal();
         } else {
             throw new Error(result.error || 'Ошибка при отправке');
         }
     } catch (error) {
         console.error('Ошибка отправки сообщения менеджеру:', error);
-        // Не блокируем работу приложения, если бэкенд недоступен
         alert('Произошла ошибка при отправке сообщения. Попробуйте позже или свяжитесь с нами напрямую.');
     } finally {
         if (contactBtn) {
