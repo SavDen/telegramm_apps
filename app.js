@@ -49,6 +49,54 @@ let selectedFilters = {
     brand: null
 };
 
+// Определение категории машины на основе её характеристик
+function getCarCategory(car) {
+    const brand = (car.brand || '').toLowerCase();
+    const type = (car.type || '').toLowerCase();
+    const price = car.price || 0;
+    const model = (car.model || '').toLowerCase();
+    
+    // 1. Премиум: дорогие марки (Genesis, Mercedes, BMW, Audi, Lexus и т.д.) или дорогие машины (выше 30 млн)
+    const premiumBrands = ['genesis', 'mercedes', 'bmw', 'audi', 'lexus', 'porsche', 'bentley', 'rolls-royce', 'maserati', 'jaguar'];
+    const isPremiumBrand = premiumBrands.some(pb => brand.includes(pb));
+    if (isPremiumBrand || price > 30000000) {
+        return 'premium';
+    }
+    
+    // 2. Выгодные: самые недорогие машины (до 15 млн) или дешевые модели (Rio, Picanto, i10, i20 и т.д.)
+    const budgetModels = ['rio', 'picanto', 'i10', 'i20', 'getz', 'accent', 'solaris', 'elantra'];
+    const isBudgetModel = budgetModels.some(bb => model.includes(bb));
+    if (price < 15000000 || isBudgetModel) {
+        return 'deal';
+    }
+    
+    // 3. Бизнес: премиум модели высокого класса (G90, G80, S-Class, 7 Series, A8, LS), 
+    //    минивэны или дорогие внедорожники (выше 20 млн)
+    const businessModels = ['g90', 'g80', 's-class', '7 series', 'a8', 'ls', 'e-class', '5 series'];
+    const isBusinessModel = businessModels.some(bm => model.includes(bm));
+    const businessTypes = ['минивэн', 'minivan'];
+    const isBusinessType = businessTypes.some(bt => type.includes(bt));
+    const isExpensiveSUV = (type.includes('внедорожник') || type.includes('suv')) && price > 20000000;
+    
+    if (isBusinessModel || isBusinessType || isExpensiveSUV) {
+        return 'business';
+    }
+    
+    // 4. Семейные: большие машины (минивэны, внедорожники, кроссоверы) 
+    //    или недорогие марки Kia/Hyundai (до 25 млн)
+    const familyTypes = ['минивэн', 'minivan', 'внедорожник', 'suv', 'кроссовер', 'crossover'];
+    const isFamilyType = familyTypes.some(ft => type.includes(ft));
+    const familyBrands = ['kia', 'hyundai'];
+    const isFamilyBrand = familyBrands.some(fb => brand.includes(fb));
+    
+    if (isFamilyType || (isFamilyBrand && price < 25000000)) {
+        return 'family';
+    }
+    
+    // 5. По умолчанию - бизнес для среднего сегмента
+    return 'business';
+}
+
 // Инициализация Telegram Web App
 function initTelegramWebApp() {
     if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
@@ -144,7 +192,7 @@ function createCarCard(car, index) {
         <div class="car-info">
             <div class="car-title">${car.brand || ''} ${car.model || ''}</div>
             <div class="car-year">${car.year || ''} ${car.year ? 'год' : ''}${car.configuration ? ` · ${car.configuration}` : ''}</div>
-            <div class="car-price ${car.category === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
+            <div class="car-price ${getCarCategory(car) === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
             <div class="car-specs">
                 <div class="car-spec-item">
                     <span>📏</span>
@@ -255,9 +303,12 @@ function applyFilters() {
     
     // Фильтруем автомобили
     filteredCars = carsData.filter(car => {
-        // Фильтр по категории
-        if (currentCategory && car.category !== currentCategory) {
-            return false;
+        // Фильтр по категории (определяем категорию динамически)
+        if (currentCategory) {
+            const carCategory = getCarCategory(car);
+            if (carCategory !== currentCategory) {
+                return false;
+            }
         }
         
         // Фильтр по марке
@@ -563,7 +614,8 @@ function openCarModal(carId) {
     
     const modalPriceElement = document.getElementById('modalCarPrice');
     modalPriceElement.textContent = formattedPrice;
-    if (car.category === 'deal') {
+    const carCategory = getCarCategory(car);
+    if (carCategory === 'deal') {
         modalPriceElement.classList.add('car-price-deal');
     } else {
         modalPriceElement.classList.remove('car-price-deal');
@@ -573,7 +625,7 @@ function openCarModal(carId) {
     document.getElementById('modalCarMileage').textContent = `${(car.mileage || 0).toLocaleString()} км`;
     document.getElementById('modalCarTransmission').textContent = car.transmission || 'Не указано';
     document.getElementById('modalCarFuel').textContent = car.fuel || 'Не указано';
-    document.getElementById('modalCarCategory').textContent = categoryNames[car.category] || car.category || 'Не указано';
+    document.getElementById('modalCarCategory').textContent = categoryNames[carCategory] || carCategory || 'Не указано';
     
     // Заполняем фото
     const modalPhoto = document.getElementById('modalCarPhoto');
@@ -736,7 +788,7 @@ let allCarsData = [];
 
 // ТЕСТОВЫЕ ДАННЫЕ (для локального тестирования без CSV)
 // Установите USE_TEST_DATA = true для использования тестовых данных
-const USE_TEST_DATA = true; // Измените на false для использования реального CSV
+const USE_TEST_DATA = false; // Измените на false для использования реального CSV
 
 const TEST_CARS_DATA = [
     {
@@ -1153,7 +1205,7 @@ function parseCSV(csvText) {
                 mileage: mileage,
                 transmission: transmission,
                 fuel: fuel,
-                category: price && price < 5000000 ? 'deal' : 'premium',
+                // Категория будет определяться динамически через getCarCategory()
                 description: description.substring(0, 500),
                 photo_url: photo_url,
                 photo_urls: photo_urls,
@@ -1217,9 +1269,9 @@ async function loadCars(reset = true) {
             // Применяем фильтры
             let filteredCars = [...allCarsData];
             
-            // Фильтры по категории
+            // Фильтры по категории (определяем категорию динамически)
             if (currentCategory) {
-                filteredCars = filteredCars.filter(c => c.category === currentCategory);
+                filteredCars = filteredCars.filter(c => getCarCategory(c) === currentCategory);
             }
             
             // Другие фильтры
@@ -1596,7 +1648,7 @@ async function handleContact(carId) {
             mileage: car.mileage,
             transmission: car.transmission,
             fuel: car.fuel,
-            category: car.category,
+            category: getCarCategory(car),
             link: car.link || '' // URL из базы данных
         },
         user: userData,
