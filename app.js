@@ -628,6 +628,7 @@ function openCarModal(carId) {
             if (option) {
                 if (r.checked) {
                     option.classList.add('checked');
+                    console.log('Добавлен класс checked к опции:', option.className, 'метод:', method);
                 } else {
                     option.classList.remove('checked');
                 }
@@ -673,9 +674,20 @@ function openCarModal(carId) {
     // Обновляем обработчик кнопки отправки
     const modalContactBtn = document.getElementById('modalContactBtn');
     if (modalContactBtn) {
-        modalContactBtn.onclick = () => {
+        // Удаляем старый обработчик если есть
+        const newBtn = modalContactBtn.cloneNode(true);
+        modalContactBtn.parentNode.replaceChild(newBtn, modalContactBtn);
+        
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Кнопка отправки нажата, вызываем handleContact...');
             handleContact(carId);
-        };
+        });
+        
+        console.log('Обработчик кнопки установлен для carId:', carId);
+    } else {
+        console.error('Кнопка modalContactBtn не найдена!');
     }
     
     // Показываем модальное окно
@@ -1275,8 +1287,13 @@ function updateLoadMoreButton() {
 
 // Обработка контакта по автомобилю
 async function handleContact(carId) {
+    console.log('handleContact вызвана для carId:', carId);
+    
     const car = carsData.find(c => c.id === carId);
-    if (!car) return;
+    if (!car) {
+        console.error('Машина не найдена:', carId);
+        return;
+    }
     
     // Получаем данные из формы
     const questionInput = document.getElementById('modalQuestion');
@@ -1287,6 +1304,8 @@ async function handleContact(carId) {
     const phone = phoneInput ? phoneInput.value.trim() : '';
     const selectedMethod = Array.from(contactMethodRadios).find(r => r.checked);
     const contactMethod = selectedMethod ? selectedMethod.value : 'whatsapp';
+    
+    console.log('Данные формы:', { question, phone, contactMethod });
     
     // Валидация
     if (!question) {
@@ -1304,6 +1323,8 @@ async function handleContact(carId) {
         }
         return;
     }
+    
+    console.log('Валидация пройдена, формируем данные...');
     
     // Получаем данные пользователя из Telegram
     let userData = {
@@ -1388,7 +1409,10 @@ async function handleContact(carId) {
     alertText += '⚠️ Это тестовый режим.\n';
     alertText += 'После настройки бэкенда данные будут отправляться автоматически.';
     
+    console.log('Показываем alert с данными...');
+    console.log('Текст alert:', alertText);
     alert(alertText);
+    console.log('Alert показан');
     
     // Очищаем форму
     if (questionInput) questionInput.value = '';

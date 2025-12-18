@@ -1231,27 +1231,28 @@ body {
     color: white;
 }
 
-/* Специальный стиль для WhatsApp - зеленый */
-.contact-method-option.whatsapp.checked {
-    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-    border-color: #25D366;
-    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+/* Специальный стиль для WhatsApp - зеленый (более высокая специфичность) */
+.contact-method-selector .contact-method-option.whatsapp.checked {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%) !important;
+    border-color: #25D366 !important;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3) !important;
 }
 
-.contact-method-option.whatsapp.checked .contact-method-icon,
-.contact-method-option.whatsapp.checked .contact-method-text {
-    color: white;
+.contact-method-selector .contact-method-option.whatsapp.checked .contact-method-icon,
+.contact-method-selector .contact-method-option.whatsapp.checked .contact-method-text {
+    color: white !important;
 }
 
-.contact-method-option.telegram.checked {
-    background: linear-gradient(135deg, #0088cc 0%, #006ba3 100%);
-    border-color: #0088cc;
-    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+/* Специальный стиль для Telegram - синий */
+.contact-method-selector .contact-method-option.telegram.checked {
+    background: linear-gradient(135deg, #0088cc 0%, #006ba3 100%) !important;
+    border-color: #0088cc !important;
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3) !important;
 }
 
-.contact-method-option.telegram.checked .contact-method-icon,
-.contact-method-option.telegram.checked .contact-method-text {
-    color: white;
+.contact-method-selector .contact-method-option.telegram.checked .contact-method-icon,
+.contact-method-selector .contact-method-option.telegram.checked .contact-method-text {
+    color: white !important;
 }
 
 .contact-method-icon {
