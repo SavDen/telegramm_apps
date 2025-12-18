@@ -1359,6 +1359,50 @@ async function handleContact(carId) {
         timestamp: new Date().toISOString()
     };
     
+    // ТЕСТОВЫЙ РЕЖИМ: Показываем alert с данными вместо отправки на сервер
+    // TODO: Убрать после настройки бэкенда
+    
+    // Форматируем данные для отображения
+    const displayData = {
+        '🚗 Автомобиль': `${car.brand} ${car.model}${car.year ? ` (${car.year} год)` : ''}`,
+        '💰 Цена': formattedPrice,
+        '📏 Пробег': `${(car.mileage || 0).toLocaleString()} км`,
+        '⚙️ Коробка': car.transmission || 'Не указано',
+        '⛽ Топливо': car.fuel || 'Не указано',
+        '🔗 Ссылка на объявление': car.link || 'Не указано',
+        '📱 Метод связи': contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telegram',
+        '📞 Номер телефона': phone || 'Не указан',
+        '👤 Пользователь': userData.firstName && userData.lastName 
+            ? `${userData.firstName} ${userData.lastName}${userData.username ? ` (@${userData.username})` : ''}` 
+            : userData.username ? `@${userData.username}` : `ID: ${userData.userId || 'Не указано'}`,
+        '🔗 Ссылка на Telegram': userData.userLink || 'Не указано',
+        '❓ Вопрос': question
+    };
+    
+    // Формируем текст для alert
+    let alertText = '📋 Данные для отправки:\n\n';
+    for (const [key, value] of Object.entries(displayData)) {
+        alertText += `${key}: ${value}\n`;
+    }
+    alertText += '\n━━━━━━━━━━━━━━━━━━━━\n';
+    alertText += '⚠️ Это тестовый режим.\n';
+    alertText += 'После настройки бэкенда данные будут отправляться автоматически.';
+    
+    alert(alertText);
+    
+    // Очищаем форму
+    if (questionInput) questionInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    
+    // Закрываем модальное окно
+    closeCarModal();
+    
+    // Логируем данные в консоль для отладки
+    console.log('Данные для отправки:', requestData);
+    
+    /* 
+    // РАСКОММЕНТИРОВАТЬ ПОСЛЕ НАСТРОЙКИ БЭКЕНДА:
+    
     // Показываем индикатор загрузки
     const contactBtn = document.getElementById('modalContactBtn');
     const originalText = contactBtn ? contactBtn.textContent : '';
@@ -1403,6 +1447,7 @@ async function handleContact(carId) {
             contactBtn.textContent = originalText;
         }
     }
+    */
 }
 
 // Инициализация приложения
