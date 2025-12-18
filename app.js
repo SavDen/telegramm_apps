@@ -3,6 +3,7 @@ let carsData = [];
 let isLoading = false;
 let currentPage = 1;
 let hasMore = true;
+const PAGE_SIZE = 10; // Размер страницы пагинации
 let availableFilters = {
     brands: [],
     fuelTypes: [],
@@ -732,6 +733,165 @@ const CSV_URL = CSV_URLS[currentCSVUrlIndex];
 
 // Кэш для всех машин
 let allCarsData = [];
+
+// ТЕСТОВЫЕ ДАННЫЕ (для локального тестирования без CSV)
+// Установите USE_TEST_DATA = true для использования тестовых данных
+const USE_TEST_DATA = true; // Измените на false для использования реального CSV
+
+const TEST_CARS_DATA = [
+    {
+        id: 'test_car_1',
+        brand: 'Hyundai',
+        model: 'Sonata',
+        year: 2022,
+        price: 25000000,
+        mileage: 15000,
+        transmission: 'Автоматическая',
+        fuel: 'Бензин',
+        category: 'premium',
+        description: 'Отличное состояние, один владелец, полная комплектация. Машина в идеальном состоянии, без ДТП, все документы в порядке.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Седан',
+        configuration: 'Премиум',
+        color: 'Белый',
+        displacement: '2.0',
+        link: 'https://example.com/car/1'
+    },
+    {
+        id: 'test_car_2',
+        brand: 'Kia',
+        model: 'Sportage',
+        year: 2021,
+        price: 18000000,
+        mileage: 35000,
+        transmission: 'Автоматическая',
+        fuel: 'Дизель',
+        category: 'family',
+        description: 'Просторный кроссовер для семьи. Отличный выбор для дальних поездок. Все опции, включая камеру заднего вида и навигацию.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Кроссовер',
+        configuration: 'Стандартная',
+        color: 'Серый',
+        displacement: '2.0',
+        link: 'https://example.com/car/2'
+    },
+    {
+        id: 'test_car_3',
+        brand: 'Genesis',
+        model: 'G90',
+        year: 2023,
+        price: 45000000,
+        mileage: 5000,
+        transmission: 'Автоматическая',
+        fuel: 'Бензин',
+        category: 'premium',
+        description: 'Роскошный седан премиум-класса. Максимальная комплектация, все опции. Идеальное состояние, как новый.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Седан',
+        configuration: 'Люкс',
+        color: 'Черный',
+        displacement: '3.3',
+        link: 'https://example.com/car/3'
+    },
+    {
+        id: 'test_car_4',
+        brand: 'Hyundai',
+        model: 'Tucson',
+        year: 2020,
+        price: 12000000,
+        mileage: 60000,
+        transmission: 'Механическая',
+        fuel: 'Бензин',
+        category: 'deal',
+        description: 'Выгодное предложение! Надежный кроссовер с хорошей проходимостью. Отличное состояние для своего возраста.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Кроссовер',
+        configuration: 'Стандартная',
+        color: 'Синий',
+        displacement: '1.6',
+        link: 'https://example.com/car/4'
+    },
+    {
+        id: 'test_car_5',
+        brand: 'Kia',
+        model: 'K5',
+        year: 2022,
+        price: 22000000,
+        mileage: 20000,
+        transmission: 'Автоматическая',
+        fuel: 'Гибрид',
+        category: 'business',
+        description: 'Современный бизнес-седан с гибридным двигателем. Экономичный расход, стильный дизайн. Все документы в порядке.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Седан',
+        configuration: 'Бизнес',
+        color: 'Белый',
+        displacement: '2.0',
+        link: 'https://example.com/car/5'
+    },
+    {
+        id: 'test_car_6',
+        brand: 'Hyundai',
+        model: 'Santa Fe',
+        year: 2021,
+        price: 28000000,
+        mileage: 40000,
+        transmission: 'Автоматическая',
+        fuel: 'Дизель',
+        category: 'family',
+        description: 'Просторный 7-местный внедорожник. Идеален для большой семьи. Все опции, включая третий ряд сидений.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Внедорожник',
+        configuration: 'Стандартная',
+        color: 'Серебристый',
+        displacement: '2.2',
+        link: 'https://example.com/car/6'
+    },
+    {
+        id: 'test_car_7',
+        brand: 'Genesis',
+        model: 'GV80',
+        year: 2023,
+        price: 50000000,
+        mileage: 3000,
+        transmission: 'Автоматическая',
+        fuel: 'Бензин',
+        category: 'premium',
+        description: 'Премиальный внедорожник. Максимальная комплектация, все опции. Практически новый автомобиль.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Внедорожник',
+        configuration: 'Люкс',
+        color: 'Черный',
+        displacement: '3.5',
+        link: 'https://example.com/car/7'
+    },
+    {
+        id: 'test_car_8',
+        brand: 'Kia',
+        model: 'Rio',
+        year: 2020,
+        price: 8500000,
+        mileage: 70000,
+        transmission: 'Механическая',
+        fuel: 'Бензин',
+        category: 'deal',
+        description: 'Экономичный компактный седан. Отличное состояние, идеален для города. Низкий расход топлива.',
+        photo_url: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop',
+        photo_urls: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0ad6?w=800&h=600&fit=crop'],
+        type: 'Седан',
+        configuration: 'Стандартная',
+        color: 'Красный',
+        displacement: '1.4',
+        link: 'https://example.com/car/8'
+    }
+];
 let csvCacheTime = 0;
 const CSV_CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
@@ -1048,6 +1208,70 @@ async function loadCars(reset = true) {
     }
     
     try {
+        // ТЕСТОВЫЙ РЕЖИМ: Используем локальные данные
+        if (USE_TEST_DATA) {
+            console.log('📦 Используем тестовые данные (USE_TEST_DATA = true)');
+            allCarsData = [...TEST_CARS_DATA];
+            csvCacheTime = Date.now();
+            
+            // Применяем фильтры
+            let filteredCars = [...allCarsData];
+            
+            // Фильтры по категории
+            if (currentCategory) {
+                filteredCars = filteredCars.filter(c => c.category === currentCategory);
+            }
+            
+            // Другие фильтры
+            if (selectedFilters.minYear) {
+                filteredCars = filteredCars.filter(c => c.year && c.year >= selectedFilters.minYear);
+            }
+            if (selectedFilters.maxYear) {
+                filteredCars = filteredCars.filter(c => c.year && c.year <= selectedFilters.maxYear);
+            }
+            if (selectedFilters.fuelType) {
+                filteredCars = filteredCars.filter(c => c.fuel === selectedFilters.fuelType);
+            }
+            if (selectedFilters.brand) {
+                filteredCars = filteredCars.filter(c => c.brand === selectedFilters.brand);
+            }
+            
+            // Пагинация
+            let paginatedCars;
+            
+            if (reset) {
+                carsData = filteredCars;
+                const start = (currentPage - 1) * PAGE_SIZE;
+                const end = start + PAGE_SIZE;
+                paginatedCars = filteredCars.slice(start, end);
+                hasMore = end < filteredCars.length;
+                currentPage++;
+                
+                // Применяем фильтры (категория и другие фронтенд фильтры)
+                applyFilters();
+            } else {
+                // Для автоматической загрузки добавляем к существующим
+                const start = carsData.length;
+                const end = start + PAGE_SIZE;
+                paginatedCars = filteredCars.slice(start, end);
+                hasMore = end < filteredCars.length;
+                currentPage++;
+                
+                // Добавляем новые карточки
+                appendCars(paginatedCars);
+            }
+            
+            // Извлекаем доступные фильтры
+            extractAvailableFilters();
+            
+            if (reset) {
+                renderCars(paginatedCars);
+            }
+            
+            isLoading = false;
+            return;
+        }
+        
         // Проверяем кэш
         const now = Date.now();
         if (reset && allCarsData.length > 0 && (now - csvCacheTime) < CSV_CACHE_TTL) {
@@ -1165,13 +1389,12 @@ async function loadCars(reset = true) {
         }
         
         // Пагинация
-        const pageSize = 20;
         let paginatedCars;
         
         if (reset) {
             carsData = filteredCars;
-            const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
             paginatedCars = filteredCars.slice(start, end);
             hasMore = end < filteredCars.length;
             currentPage++;
@@ -1179,16 +1402,15 @@ async function loadCars(reset = true) {
             // Применяем фильтры (категория и другие фронтенд фильтры)
             applyFilters();
         } else {
-            // Для "Загрузить еще" добавляем к существующим
+            // Для автоматической загрузки добавляем к существующим
             const start = carsData.length;
-            const end = start + pageSize;
+            const end = start + PAGE_SIZE;
             paginatedCars = filteredCars.slice(start, end);
             hasMore = end < filteredCars.length;
             currentPage++;
             
             // Добавляем новые карточки
             appendCars(paginatedCars);
-            updateLoadMoreButton();
         }
         
     } catch (error) {
@@ -1248,7 +1470,31 @@ function extractAvailableFilters() {
     updateFiltersUI();
 }
 
-// Загрузка еще машин
+// Обработчик прокрутки для автоматической загрузки
+let scrollTimeout = null;
+function handleScroll() {
+    // Throttle: проверяем не чаще чем раз в 200ms
+    if (scrollTimeout) return;
+    
+    scrollTimeout = setTimeout(() => {
+        scrollTimeout = null;
+        
+        // Проверяем, доскроллили ли до конца страницы
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        
+        // Загружаем еще, если до конца осталось меньше 300px
+        if (documentHeight - (scrollTop + windowHeight) < 300) {
+            if (!isLoading && hasMore) {
+                console.log('Автоматическая загрузка при прокрутке');
+                loadMoreCars();
+            }
+        }
+    }, 200);
+}
+
+// Загрузка еще машин (для автоматической загрузки при прокрутке)
 async function loadMoreCars() {
     if (isLoading || !hasMore) return;
     await loadCars(false);
@@ -1263,27 +1509,7 @@ async function loadAvailableFilters() {
     }
 }
 
-// Обновление кнопки "Загрузить еще"
-function updateLoadMoreButton() {
-    let loadMoreBtn = document.getElementById('loadMoreBtn');
-    const carsGrid = document.getElementById('carsGrid');
-    
-    if (!hasMore) {
-        if (loadMoreBtn) {
-            loadMoreBtn.remove();
-        }
-        return;
-    }
-    
-    if (!loadMoreBtn && carsGrid) {
-        loadMoreBtn = document.createElement('button');
-        loadMoreBtn.id = 'loadMoreBtn';
-        loadMoreBtn.className = 'load-more-btn';
-        loadMoreBtn.textContent = 'Загрузить еще';
-        loadMoreBtn.onclick = loadMoreCars;
-        carsGrid.parentElement.appendChild(loadMoreBtn);
-    }
-}
+// Функция updateLoadMoreButton удалена - теперь используется автоматическая загрузка при прокрутке
 
 // Обработка контакта по автомобилю
 async function handleContact(carId) {
@@ -1537,6 +1763,15 @@ function init() {
     
     // Автообновление каждые 5 минут
     setInterval(loadCars, 5 * 60 * 1000);
+    
+    // Добавляем обработчик прокрутки для автоматической загрузки
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Также обрабатываем прокрутку в контейнере результатов (для мобильных устройств)
+    const resultsSection = document.querySelector('.results-section');
+    if (resultsSection) {
+        resultsSection.addEventListener('scroll', handleScroll, { passive: true });
+    }
 }
 
 // Запуск приложения после загрузки DOM
