@@ -922,6 +922,47 @@ function closeCarModal() {
 // Загрузка машин происходит напрямую из Google Sheets CSV (без бэкенда)
 const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
+// Массив для хранения логов (для отладки) - определяется раньше для использования
+const debugLogs = [];
+const MAX_LOGS = 50;
+
+// Функция для логирования с сохранением (определяется раньше для использования)
+function debugLog(level, message, data = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        level,
+        message,
+        data: data ? JSON.stringify(data, null, 2) : null
+    };
+    
+    debugLogs.push(logEntry);
+    if (debugLogs.length > MAX_LOGS) {
+        debugLogs.shift(); // Удаляем старые логи
+    }
+    
+    // Выводим в консоль
+    const logMessage = `[${timestamp}] ${level}: ${message}`;
+    if (data) {
+        console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'log'](logMessage, data);
+    } else {
+        console[level === 'ERROR' ? 'error' : level === 'WARN' ? 'warn' : 'log'](logMessage);
+    }
+    
+    // Сохраняем в localStorage для отладки
+    try {
+        localStorage.setItem('debugLogs', JSON.stringify(debugLogs.slice(-20))); // Последние 20
+    } catch (e) {
+        // Игнорируем ошибки localStorage
+    }
+}
+
+// Логируем конфигурацию при загрузке
+debugLog('INFO', 'Конфигурация приложения', {
+    SERVER_URL: SERVER_URL,
+    timestamp: new Date().toISOString()
+});
+
 // URL к CSV экспорту Google Sheets
 // Важно: Таблица должна быть опубликована для экспорта!
 // Инструкция: Файл → Опубликовать в интернете → CSV → Опубликовать
@@ -1715,8 +1756,9 @@ async function loadAvailableFilters() {
 // Функция updateLoadMoreButton удалена - теперь используется автоматическая загрузка при прокрутке
 
 // Обработка контакта по автомобилю
-// Функция для показа кастомного уведомления
-function showNotification(message, duration = 3000) {
+
+// Функция для показа кастомного уведомления с деталями ошибки
+function showNotification(message, duration = 3000, errorDetails = null) {
     const notification = document.getElementById('customNotification');
     const notificationText = notification.querySelector('.custom-notification-text');
     
@@ -1725,7 +1767,22 @@ function showNotification(message, duration = 3000) {
         return;
     }
     
-    notificationText.textContent = message;
+    // Если есть детали ошибки, добавляем их
+    let fullMessage = message;
+    if (errorDetails) {
+        fullMessage += `\n\nДетали: ${errorDetails}`;
+        duration = Math.max(duration, 6000); // Увеличиваем время для ошибок
+    }
+    
+    notificationText.textContent = fullMessage;
+    
+    // Меняем цвет для ошибок
+    if (message.includes('❌') || message.includes('Ошибка')) {
+        notification.style.background = 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)';
+    } else {
+        notification.style.background = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+    }
+    
     notification.classList.add('show');
     
     setTimeout(() => {
@@ -1734,13 +1791,22 @@ function showNotification(message, duration = 3000) {
 }
 
 async function handleContact(carId) {
-    console.log('handleContact вызвана для carId:', carId);
+    debugLog('INFO', '=== НАЧАЛО ОТПРАВКИ ЗАЯВКИ ===');
+    debugLog('INFO', 'handleContact вызвана', { carId });
     
     const car = carsData.find(c => c.id === carId);
     if (!car) {
-        console.error('Машина не найдена:', carId);
+        debugLog('ERROR', 'Машина не найдена', { carId, availableIds: carsData.slice(0, 5).map(c => c.id) });
+        showNotification('❌ Ошибка: машина не найдена', 3000);
         return;
     }
+    
+    debugLog('INFO', 'Машина найдена', {
+        id: car.id,
+        brand: car.brand,
+        model: car.model,
+        year: car.year
+    });
     
     // Получаем данные из формы
     const questionInput = document.getElementById('modalQuestion');
@@ -1752,10 +1818,15 @@ async function handleContact(carId) {
     const selectedMethod = Array.from(contactMethodRadios).find(r => r.checked);
     const contactMethod = selectedMethod ? selectedMethod.value : 'whatsapp';
     
-    console.log('Данные формы:', { question, phone, contactMethod });
+    debugLog('INFO', 'Данные формы', {
+        questionLength: question.length,
+        hasPhone: !!phone,
+        contactMethod: contactMethod
+    });
     
     // Валидация
     if (!question) {
+        debugLog('WARN', 'Валидация не пройдена: вопрос не указан');
         showNotification('Пожалуйста, задайте вопрос о машине', 3000);
         if (questionInput) {
             questionInput.focus();
@@ -1764,6 +1835,7 @@ async function handleContact(carId) {
     }
     
     if (contactMethod === 'whatsapp' && !phone) {
+        debugLog('WARN', 'Валидация не пройдена: телефон не указан для WhatsApp');
         showNotification('Для связи через WhatsApp необходимо указать номер телефона', 3000);
         if (phoneInput) {
             phoneInput.focus();
@@ -1771,7 +1843,7 @@ async function handleContact(carId) {
         return;
     }
     
-    console.log('Валидация пройдена, формируем данные...');
+    debugLog('INFO', 'Валидация пройдена');
     
     // Получаем данные пользователя из Telegram
     let userData = {
@@ -1797,6 +1869,14 @@ async function handleContact(carId) {
                 userData.userLink = `tg://user?id=${userData.userId}`;
             }
         }
+        debugLog('INFO', 'Данные пользователя Telegram', {
+            userId: userData.userId,
+            username: userData.username || 'не указан',
+            hasFirstName: !!userData.firstName,
+            hasLastName: !!userData.lastName
+        });
+    } else {
+        debugLog('WARN', 'Telegram WebApp API недоступен');
     }
     
     // Форматируем цену
@@ -1806,7 +1886,7 @@ async function handleContact(carId) {
     }
     
     // Формируем данные для отправки
-        const requestData = {
+    const requestData = {
         car: {
             id: car.id,
             brand: car.brand,
@@ -1818,15 +1898,24 @@ async function handleContact(carId) {
             transmission: car.transmission,
             fuel: car.fuel,
             category: getCarCategory(car),
-            link: car.link || '' // URL из базы данных
+            link: car.link || ''
         },
         user: userData,
         question: question,
-        phone: phone || null, // Номер телефона (если указан)
-        contactMethod: contactMethod, // 'whatsapp' или 'telegram'
-            timestamp: new Date().toISOString()
-        };
-        
+        phone: phone || null,
+        contactMethod: contactMethod,
+        timestamp: new Date().toISOString()
+    };
+    
+    debugLog('INFO', 'Данные для отправки подготовлены', {
+        car: `${requestData.car.brand} ${requestData.car.model}`,
+        userId: requestData.user.userId,
+        contactMethod: requestData.contactMethod,
+        hasQuestion: !!requestData.question,
+        hasPhone: !!requestData.phone,
+        questionLength: requestData.question.length
+    });
+    
     // Показываем индикатор загрузки
     const contactBtn = document.getElementById('modalContactBtn');
     const originalText = contactBtn ? contactBtn.textContent : '';
@@ -1835,15 +1924,18 @@ async function handleContact(carId) {
         contactBtn.textContent = 'Отправка...';
     }
     
+    const requestUrl = `${SERVER_URL}/api/webapp/contact`;
+    const startTime = Date.now();
+    
     try {
-        console.log('Отправка запроса на сервер...', {
-            url: `${SERVER_URL}/api/webapp/contact`,
-            carId: car.id,
-            contactMethod: contactMethod
+        debugLog('INFO', 'Отправка запроса на сервер', {
+            url: requestUrl,
+            method: 'POST',
+            serverUrl: SERVER_URL
         });
         
         // ЕДИНСТВЕННОЕ место, где используется бэкенд - отправка сообщения менеджеру
-        const response = await fetch(`${SERVER_URL}/api/webapp/contact`, {
+        const response = await fetch(requestUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1851,24 +1943,69 @@ async function handleContact(carId) {
             body: JSON.stringify(requestData)
         });
         
+        const responseTime = Date.now() - startTime;
+        debugLog('INFO', `Ответ получен за ${responseTime}ms`, {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+        });
+        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Ошибка ответа сервера:', {
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Не удалось прочитать текст ошибки';
+            }
+            
+            debugLog('ERROR', 'Ошибка ответа сервера', {
                 status: response.status,
                 statusText: response.statusText,
-                error: errorText
+                responseTime: responseTime,
+                errorText: errorText.substring(0, 500),
+                url: requestUrl
             });
-            throw new Error(`Ошибка ${response.status}: ${response.statusText}`);
+            
+            // Формируем понятное сообщение об ошибке
+            let errorMessage = `Ошибка ${response.status}`;
+            let errorDetails = '';
+            
+            if (response.status === 500) {
+                errorMessage = 'Ошибка сервера';
+                errorDetails = 'Сервер вернул ошибку 500. Проверьте логи бэкенда.';
+            } else if (response.status === 404) {
+                errorMessage = 'Endpoint не найден';
+                errorDetails = `URL ${requestUrl} не найден. Проверьте настройки сервера.`;
+            } else if (response.status === 400) {
+                errorMessage = 'Неверный запрос';
+                errorDetails = 'Сервер не смог обработать запрос. Проверьте данные.';
+            } else if (response.status === 0 || response.status === 'Failed to fetch') {
+                errorMessage = 'Нет подключения к серверу';
+                errorDetails = `Не удалось подключиться к ${SERVER_URL}. Проверьте интернет-соединение.`;
+            } else {
+                errorDetails = errorText.substring(0, 200);
+            }
+            
+            throw new Error(`${errorMessage}: ${errorDetails}`);
         }
         
-        const result = await response.json();
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+            debugLog('ERROR', 'Ошибка парсинга JSON ответа', { error: e.message });
+            throw new Error('Сервер вернул некорректный ответ');
+        }
+        
+        debugLog('INFO', 'Ответ сервера получен', { success: result.success, hasError: !!result.error });
         
         if (result.success) {
-            console.log('✅ Запрос успешно отправлен:', {
+            debugLog('INFO', '✅ Запрос успешно отправлен', {
                 carId: car.id,
                 userId: userData.userId,
                 contactMethod: contactMethod,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                responseTime: responseTime
             });
             
             // Показываем кастомное уведомление
@@ -1889,23 +2026,50 @@ async function handleContact(carId) {
                 closeCarModal();
             }, 500);
         } else {
+            debugLog('ERROR', 'Сервер вернул success: false', { result });
             throw new Error(result.error || 'Ошибка при отправке');
         }
     } catch (error) {
-        console.error('❌ Ошибка отправки сообщения менеджеру:', {
+        const responseTime = Date.now() - startTime;
+        
+        debugLog('ERROR', '❌ ОШИБКА отправки сообщения менеджеру', {
             error: error.message,
-            stack: error.stack,
+            name: error.name,
             carId: car.id,
             userId: userData.userId,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            serverUrl: SERVER_URL,
+            requestUrl: requestUrl,
+            responseTime: responseTime
         });
         
-        showNotification('❌ Произошла ошибка при отправке. Попробуйте позже или свяжитесь с нами напрямую.', 4000);
+        // Формируем понятное сообщение для пользователя
+        let userMessage = '❌ Произошла ошибка при отправке. ';
+        let errorDetails = '';
+        
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed')) {
+            userMessage += 'Нет подключения к серверу.';
+            errorDetails = `Проверьте подключение к интернету и доступность сервера ${SERVER_URL}`;
+        } else if (error.message.includes('404')) {
+            userMessage += 'Сервер недоступен.';
+            errorDetails = `Endpoint не найден: ${requestUrl}`;
+        } else if (error.message.includes('500')) {
+            userMessage += 'Ошибка на сервере.';
+            errorDetails = 'Сервер вернул ошибку 500. Обратитесь к администратору.';
+        } else if (error.message.includes('CORS') || error.message.includes('CORS policy')) {
+            userMessage += 'Проблема с CORS.';
+            errorDetails = 'Сервер не разрешает запросы с этого домена.';
+        } else {
+            errorDetails = error.message;
+        }
+        
+        showNotification(userMessage, 5000, errorDetails);
     } finally {
         if (contactBtn) {
             contactBtn.disabled = false;
             contactBtn.textContent = originalText;
         }
+        debugLog('INFO', '=== КОНЕЦ ОТПРАВКИ ЗАЯВКИ ===');
     }
 }
 
