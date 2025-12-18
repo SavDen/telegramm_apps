@@ -104,16 +104,24 @@ function createCarCard(car, index) {
     card.style.transform = 'translateY(20px)';
     card.style.cursor = 'pointer';
     
-    const formattedPrice = formatPrice(car.price || 0, currentCurrency);
+    // Форматируем цену (если цена 0 или null, показываем "Цена не указана")
+    let formattedPrice = 'Цена не указана';
+    if (car.price && car.price > 0) {
+        formattedPrice = formatPrice(car.price, currentCurrency);
+    }
     
     // Формируем HTML для фото
     let photoHTML = '';
     let hasPhoto = false;
     if (car.photo_url) {
-        photoHTML = `<img src="${car.photo_url}" alt="${car.brand} ${car.model}" class="car-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
+        // Показываем фото, если не загрузится - покажем плейсхолдер
+        photoHTML = `<img src="${car.photo_url}" alt="${car.brand} ${car.model}" class="car-photo" onerror="this.onerror=null; this.style.display='none'; const placeholder = this.nextElementSibling; if(placeholder) placeholder.style.display='flex';">`;
+        photoHTML += '<div class="car-image-placeholder" style="display: none;">🚗</div>';
         hasPhoto = true;
+    } else {
+        // Если фото нет, показываем плейсхолдер
+        photoHTML = '<div class="car-image-placeholder">🚗</div>';
     }
-    photoHTML += '<div class="car-image-placeholder" style="display: none;">🚗</div>';
     
     const imageClass = hasPhoto ? 'car-image has-photo' : 'car-image';
     
@@ -123,7 +131,7 @@ function createCarCard(car, index) {
         </div>
         <div class="car-info">
             <div class="car-title">${car.brand || ''} ${car.model || ''}</div>
-            <div class="car-year">${car.year || ''} ${car.year ? 'год' : ''}</div>
+            <div class="car-year">${car.year || ''} ${car.year ? 'год' : ''}${car.configuration ? ` · ${car.configuration}` : ''}</div>
             <div class="car-price ${car.category === 'deal' ? 'car-price-deal' : ''}">${formattedPrice}</div>
             <div class="car-specs">
                 <div class="car-spec-item">
@@ -662,8 +670,14 @@ function parseCSV(csvText) {
     
     // Парсим заголовки (первая строка)
     const headerLine = lines[0];
-    const headers = parseCSVLine(headerLine).map(h => h.replace(/^"|"$/g, ''));
-    console.log('Заголовки:', headers.slice(0, 10), '... (показано первые 10)');
+    const headers = parseCSVLine(headerLine).map(h => h.replace(/^"|"$/g, '').trim());
+    console.log('Заголовки:', headers);
+    
+    // Создаем индекс колонок по названиям
+    const getColumnIndex = (name) => {
+        const index = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        return index >= 0 ? index : null;
+    };
     
     const cars = [];
     
@@ -675,63 +689,87 @@ function parseCSV(csvText) {
             // Парсим строку CSV
             const values = parseCSVLine(lines[i]);
             
-            // Создаем объект машины по индексам колонок
-            // Колонки: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9, K=10, L=11, M=12, ..., U=20, V=21, Y=24
-            const brand = (values[1] || '').replace(/^"|"$/g, '').trim(); // B (индекс 1)
-            const model = (values[2] || '').replace(/^"|"$/g, '').trim(); // C (индекс 2)
+            // Функция для получения значения по названию колонки
+            const getValue = (columnName) => {
+                const idx = getColumnIndex(columnName);
+                if (idx === null || idx >= values.length) return '';
+                return (values[idx] || '').replace(/^"|"$/g, '').trim();
+            };
+            
+            // Получаем данные по названиям колонок
+            const brand = getValue('mark');
+            const model = getValue('model');
             
             // Пропускаем пустые строки
             if (!brand && !model) continue;
             
-            // Парсим цену (колонка I, индекс 8)
+            // Парсим цену (используем price, если нет - price_won)
             let price = null;
-            const priceStr = (values[8] || '').replace(/^"|"$/g, '').trim();
-            if (priceStr) {
-                const priceNum = parseInt(priceStr.replace(/[\s,.]/g, ''));
-                if (!isNaN(priceNum) && priceNum > 0) price = priceNum;
+            const priceStr = getValue('price');
+            if (priceStr && priceStr.trim()) {
+                // Убираем пробелы и запятые, заменяем запятую на точку для десятичных
+                const cleanPrice = priceStr.replace(/[\s]/g, '').replace(',', '.');
+                const priceNum = parseFloat(cleanPrice);
+                if (!isNaN(priceNum) && priceNum > 0) {
+                    price = Math.round(priceNum);
+                }
+            }
+            // Если цена не найдена, пробуем price_won
+            if (!price || price === 0) {
+                const priceWonStr = getValue('price_won');
+                if (priceWonStr && priceWonStr.trim()) {
+                    const cleanPrice = priceWonStr.replace(/[\s]/g, '').replace(',', '.');
+                    const priceNum = parseFloat(cleanPrice);
+                    if (!isNaN(priceNum) && priceNum > 0) {
+                        // Конвертируем воны в рубли (примерно 1 вон = 0.07 рубля)
+                        price = Math.round(priceNum * 0.07);
+                    }
+                }
             }
             
-            // Парсим пробег (колонка J, индекс 9)
+            // Парсим пробег (km_age)
             let mileage = null;
-            const mileageStr = (values[9] || '').replace(/^"|"$/g, '').trim();
+            const mileageStr = getValue('km_age');
             if (mileageStr) {
                 const mileageNum = parseInt(mileageStr.replace(/[\s,.]/g, ''));
                 if (!isNaN(mileageNum) && mileageNum > 0) mileage = mileageNum;
             }
             
-            // Парсим год (колонка Y, индекс 24 - формат "202012")
+            // Парсим год
             let year = null;
-            const yearStr = (values[24] || '').replace(/^"|"$/g, '').trim();
+            const yearStr = getValue('year');
             if (yearStr) {
-                if (yearStr.length === 6) {
-                    year = parseInt(yearStr.substring(0, 4));
-                } else if (yearStr.length >= 4) {
-                    year = parseInt(yearStr.substring(0, 4));
+                const yearNum = parseInt(yearStr);
+                if (!isNaN(yearNum) && yearNum >= 1900 && yearNum <= 2100) {
+                    year = yearNum;
                 }
-                if (isNaN(year) || year < 1900 || year > 2100) year = null;
             }
             
-            // Парсим фото (колонка V, индекс 21 - JSON массив)
+            // Парсим фото (images - JSON массив)
             let photo_url = null;
             let photo_urls = [];
-            const photosStr = (values[21] || '').replace(/^"|"$/g, '').trim();
-            if (photosStr) {
+            const imagesStr = getValue('images');
+            if (imagesStr && imagesStr.trim()) {
                 try {
-                    // Пытаемся распарсить как JSON
-                    let photosJson = photosStr;
+                    let imagesJson = imagesStr.trim();
                     // Убираем экранированные кавычки если есть
-                    if (photosJson.startsWith('"[')) {
-                        photosJson = photosJson.slice(1, -1).replace(/\\"/g, '"');
+                    if (imagesJson.startsWith('"[')) {
+                        imagesJson = imagesJson.slice(1, -1).replace(/\\"/g, '"');
                     }
-                    if (photosJson.startsWith('[')) {
-                        photo_urls = JSON.parse(photosJson);
+                    if (imagesJson.startsWith('[')) {
+                        photo_urls = JSON.parse(imagesJson);
                         if (Array.isArray(photo_urls) && photo_urls.length > 0) {
-                            photo_url = photo_urls[0];
+                            // Фильтруем только валидные URL
+                            photo_urls = photo_urls.filter(url => url && typeof url === 'string' && url.startsWith('http'));
+                            if (photo_urls.length > 0) {
+                                photo_url = photo_urls[0];
+                            }
                         }
                     }
                 } catch (e) {
+                    console.warn(`Ошибка парсинга фото в строке ${i + 1}:`, e, 'Строка:', imagesStr.substring(0, 100));
                     // Если не JSON, пытаемся найти URL
-                    const urlMatch = photosStr.match(/https?:\/\/[^\s"\[\]]+/);
+                    const urlMatch = imagesStr.match(/https?:\/\/[^\s"\[\]]+/);
                     if (urlMatch) {
                         photo_url = urlMatch[0];
                         photo_urls = [photo_url];
@@ -739,17 +777,32 @@ function parseCSV(csvText) {
                 }
             }
             
-            // Топливо (колонка K, индекс 10)
-            const fuel = (values[10] || '').replace(/^"|"$/g, '').trim();
+            // Топливо (engine_type)
+            const fuel = getValue('engine_type') || '';
             
-            // Коробка (колонка L, индекс 11)
-            const transmission = (values[11] || '').replace(/^"|"$/g, '').trim();
+            // Коробка передач (transmission_type)
+            const transmission = getValue('transmission_type') || '';
             
-            // Тип (колонка M, индекс 12)
-            const type = (values[12] || '').replace(/^"|"$/g, '').trim();
+            // Тип кузова (body_type)
+            const type = getValue('body_type') || '';
             
-            // Описание (колонка U, индекс 20)
-            const description = (values[20] || '').replace(/^"|"$/g, '').substring(0, 500).trim();
+            // Комплектация (configuration или complectation)
+            let configuration = getValue('configuration') || getValue('complectation') || '';
+            if (!configuration) {
+                configuration = 'Стандартная';
+            }
+            
+            // Описание
+            const description = getValue('description') || '';
+            
+            // URL объявления
+            const link = getValue('url') || '';
+            
+            // Цвет
+            const color = getValue('color') || '';
+            
+            // Объем двигателя
+            const displacement = getValue('displacement') || '';
             
             const car = {
                 id: `car_${i}`,
@@ -761,10 +814,14 @@ function parseCSV(csvText) {
                 transmission: transmission,
                 fuel: fuel,
                 category: price && price < 5000000 ? 'deal' : 'premium',
-                description: description,
+                description: description.substring(0, 500),
                 photo_url: photo_url,
                 photo_urls: photo_urls,
-                type: type
+                type: type,
+                configuration: configuration,
+                color: color,
+                displacement: displacement,
+                link: link
             };
             
             cars.push(car);
@@ -775,6 +832,9 @@ function parseCSV(csvText) {
     }
     
     console.log(`Успешно распарсено ${cars.length} машин`);
+    if (cars.length > 0) {
+        console.log('Пример первой машины:', cars[0]);
+    }
     return cars;
 }
 
@@ -970,18 +1030,30 @@ function appendCars(cars) {
 
 // Извлечение доступных фильтров из данных
 function extractAvailableFilters() {
-    const brands = [...new Set(allCarsData.map(c => c.brand).filter(b => b))].sort();
-    const years = [...new Set(allCarsData.map(c => c.year).filter(y => y))].sort((a, b) => b - a);
-    const fuelTypes = [...new Set(allCarsData.map(c => c.fuel).filter(f => f))].sort();
-    const transmissions = [...new Set(allCarsData.map(c => c.transmission).filter(t => t))].sort();
+    // Марки (убираем пустые и дубликаты)
+    const brands = [...new Set(allCarsData.map(c => c.brand).filter(b => b && b.trim()))].sort();
+    
+    // Годы (убираем пустые и сортируем по убыванию)
+    const years = [...new Set(allCarsData.map(c => c.year).filter(y => y && y > 1900 && y < 2100))].sort((a, b) => b - a);
+    
+    // Типы топлива (engine_type)
+    const fuelTypes = [...new Set(allCarsData.map(c => c.fuel).filter(f => f && f.trim()))].sort();
+    
+    // Коробки передач (transmission_type)
+    const transmissions = [...new Set(allCarsData.map(c => c.transmission).filter(t => t && t.trim()))].sort();
+    
+    // Типы кузова (body_type)
+    const bodyTypes = [...new Set(allCarsData.map(c => c.type).filter(t => t && t.trim()))].sort();
     
     availableFilters = {
         brands: brands,
         years: years,
         fuel_types: fuelTypes,
-        transmissions: transmissions
+        transmissions: transmissions,
+        body_types: bodyTypes
     };
     
+    console.log('Доступные фильтры:', availableFilters);
     updateFiltersUI();
 }
 
