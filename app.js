@@ -8,6 +8,54 @@ const PAGE_SIZE = 10; // Размер страницы пагинации
 // Кэш для переводов
 const translationCache = new Map();
 
+// Функция для безопасной обработки HTML в описании
+function sanitizeDescription(html) {
+    if (!html) return '';
+    
+    let text = html;
+    
+    // Нормализуем переносы строк перед обработкой
+    text = text.replace(/\r\n/g, '\n');
+    text = text.replace(/\r/g, '\n');
+    
+    // Заменяем HTML-теги на безопасные аналоги
+    // <b> и <strong> - жирный текст (оставляем как <strong>)
+    text = text.replace(/<b\s*\/?>/gi, '<strong>');
+    text = text.replace(/<\/b>/gi, '</strong>');
+    
+    // <i> и <em> - курсив (оставляем как <em>)
+    text = text.replace(/<i\s*\/?>/gi, '<em>');
+    text = text.replace(/<\/i>/gi, '</em>');
+    
+    // <u> - подчеркивание (оставляем)
+    text = text.replace(/<u\s*\/?>/gi, '<u>');
+    text = text.replace(/<\/u>/gi, '</u>');
+    
+    // <br/> и <br> - перенос строки (нормализуем)
+    text = text.replace(/<br\s*\/?>/gi, '<br>');
+    
+    // <p> и </p> - параграфы (заменяем на переносы строк)
+    text = text.replace(/<p\s*[^>]*>/gi, '');
+    text = text.replace(/<\/p>/gi, '<br>');
+    
+    // <div> и </div> - блоки (заменяем на переносы строк)
+    text = text.replace(/<div\s*[^>]*>/gi, '');
+    text = text.replace(/<\/div>/gi, '<br>');
+    
+    // Удаляем все остальные HTML-теги и их атрибуты (для безопасности)
+    // Но сохраняем разрешенные теги: strong, em, u, br
+    text = text.replace(/<(?!\/?(?:strong|em|u|br)\b)[^>]+>/gi, '');
+    
+    // Нормализуем множественные переносы строк
+    text = text.replace(/(<br>\s*){3,}/gi, '<br><br>');
+    text = text.replace(/\n{3,}/g, '\n\n');
+    
+    // Убираем пробелы в начале и конце
+    text = text.trim();
+    
+    return text;
+}
+
 // Функция перевода текста с корейского на русский
 async function translateFromKorean(text) {
     if (!text || text.trim().length === 0) {
@@ -711,12 +759,18 @@ function openCarModal(carId) {
         modalPriceElement.classList.remove('car-price-deal');
     }
     
-    // Переводим описание если оно на корейском
+    // Переводим описание если оно на корейском и безопасно обрабатываем HTML
     const descriptionElement = document.getElementById('modalCarDescription');
     if (descriptionElement) {
         descriptionElement.textContent = 'Загрузка...';
-        translateFromKorean(car.description || 'Описание отсутствует').then(translated => {
-            descriptionElement.textContent = translated;
+        const originalDescription = car.description || 'Описание отсутствует';
+        
+        translateFromKorean(originalDescription).then(translated => {
+            // Обрабатываем HTML-теги в описании (оставляем только безопасные)
+            const sanitized = sanitizeDescription(translated);
+            
+            // Используем innerHTML для отображения форматирования (strong, em, u, br)
+            descriptionElement.innerHTML = sanitized;
         });
     }
     document.getElementById('modalCarMileage').textContent = `${(car.mileage || 0).toLocaleString()} км`;
