@@ -594,7 +594,7 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 0;
+    z-index: 3;
 }
 
 .car-card:hover .car-photo {
@@ -612,7 +612,9 @@ body {
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
     z-index: 2;
     animation: pulse 3s infinite;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 /* Если есть фото, скрываем градиент и плейсхолдер */
@@ -624,6 +626,16 @@ body {
 .car-image.has-photo::before,
 .car-image.has-photo::after {
     display: none;
+}
+
+.car-image.has-photo .car-image-placeholder {
+    display: none !important;
+}
+
+/* Убеждаемся что фото видно */
+.car-image.has-photo .car-photo {
+    display: block !important;
+    z-index: 10;
 }
 
 .car-info {

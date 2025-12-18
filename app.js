@@ -113,7 +113,18 @@ function createCarCard(car, index) {
     // Формируем HTML для фото
     let photoHTML = '';
     let hasPhoto = false;
-    if (car.photo_url) {
+    
+    // Для первой карточки логируем
+    if (index === 0) {
+        console.log('Создание карточки:', {
+            brand: car.brand,
+            model: car.model,
+            photo_url: car.photo_url ? car.photo_url.substring(0, 50) + '...' : 'нет',
+            hasPhotoUrl: !!car.photo_url
+        });
+    }
+    
+    if (car.photo_url && car.photo_url.trim()) {
         // Показываем фото, если не загрузится - покажем плейсхолдер
         photoHTML = `<img src="${car.photo_url}" alt="${car.brand} ${car.model}" class="car-photo" onerror="this.onerror=null; this.style.display='none'; const placeholder = this.nextElementSibling; if(placeholder) placeholder.style.display='flex';">`;
         photoHTML += '<div class="car-image-placeholder" style="display: none;">🚗</div>';
@@ -916,6 +927,10 @@ function parseCSV(csvText) {
                             photo_urls = photo_urls.filter(url => url && typeof url === 'string' && url.startsWith('http'));
                             if (photo_urls.length > 0) {
                                 photo_url = photo_urls[0];
+                                // Для первой машины логируем
+                                if (i === 1) {
+                                    console.log('Найдено фото:', photo_url.substring(0, 50) + '...');
+                                }
                             }
                         }
                     }
