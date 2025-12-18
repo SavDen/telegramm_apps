@@ -597,7 +597,9 @@ function closeCarModal() {
     }, 300);
 }
 
-// Конфигурация - URL вашего сервера с ботом (только для отправки сообщений)
+// Конфигурация - URL вашего сервера с ботом
+// ВАЖНО: Используется ТОЛЬКО для отправки сообщений менеджеру через /api/webapp/contact
+// Загрузка машин происходит напрямую из Google Sheets CSV (без бэкенда)
 const SERVER_URL = 'https://tgappbackend-e4rk.onrender.com';
 
 // URL к CSV экспорту Google Sheets
@@ -828,9 +830,24 @@ async function loadCars(reset = true) {
             }
             
             if (!success) {
-                const errorText = response ? await response.text() : 'Нет ответа';
-                console.error('Ошибка загрузки CSV:', errorText.substring(0, 200));
-                throw new Error(`Не удалось загрузить CSV. Убедитесь, что таблица опубликована для экспорта (Файл → Опубликовать в интернете → CSV).`);
+                let errorMessage = 'Не удалось загрузить CSV';
+                if (response) {
+                    try {
+                        const errorText = await response.text();
+                        console.error('Ошибка загрузки CSV:', response.status, errorText.substring(0, 200));
+                        if (response.status === 500 || response.status === 403) {
+                            errorMessage = 'Таблица не опубликована для экспорта. Откройте таблицу → Файл → Опубликовать в интернете → CSV → Опубликовать';
+                        } else {
+                            errorMessage = `Ошибка загрузки (${response.status}). Убедитесь, что таблица опубликована для экспорта.`;
+                        }
+                    } catch (e) {
+                        console.error('Ошибка при чтении ответа:', e);
+                        errorMessage = `Ошибка загрузки (${response.status}). Убедитесь, что таблица опубликована для экспорта.`;
+                    }
+                } else {
+                    errorMessage = 'Не удалось подключиться к Google Sheets. Проверьте интернет-соединение.';
+                }
+                throw new Error(errorMessage);
             }
             
             console.log('CSV загружен, длина:', csvText.length);
@@ -1082,7 +1099,7 @@ async function handleContact(carId) {
     }
     
     try {
-        // Отправляем на endpoint вашего бота
+        // ЕДИНСТВЕННОЕ место, где используется бэкенд - отправка сообщения менеджеру
         const response = await fetch(`${SERVER_URL}/api/webapp/contact`, {
             method: 'POST',
             headers: {
@@ -1091,9 +1108,15 @@ async function handleContact(carId) {
             body: JSON.stringify(requestData)
         });
         
+        if (!response.ok) {
+            // Если бэкенд недоступен, не критично - просто показываем сообщение
+            console.warn('Бэкенд недоступен, но это не критично для работы приложения');
+            throw new Error(`Ошибка ${response.status}`);
+        }
+        
         const result = await response.json();
         
-        if (response.ok && result.success) {
+        if (result.success) {
             alert('Спасибо! Ваш вопрос отправлен. Мы свяжемся с вами в ближайшее время.');
             // Очищаем поле вопроса
             if (questionInput) {
@@ -1103,8 +1126,9 @@ async function handleContact(carId) {
             throw new Error(result.error || 'Ошибка при отправке');
         }
     } catch (error) {
-        console.error('Ошибка отправки:', error);
-        alert('Произошла ошибка при отправке сообщения. Попробуйте позже.');
+        console.error('Ошибка отправки сообщения менеджеру:', error);
+        // Не блокируем работу приложения, если бэкенд недоступен
+        alert('Произошла ошибка при отправке сообщения. Попробуйте позже или свяжитесь с нами напрямую.');
     } finally {
         if (contactBtn) {
             contactBtn.disabled = false;
