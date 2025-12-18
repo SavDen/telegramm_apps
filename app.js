@@ -4,6 +4,48 @@ let isLoading = false;
 let currentPage = 1;
 let hasMore = true;
 const PAGE_SIZE = 10; // Размер страницы пагинации
+
+// Кэш для переводов
+const translationCache = new Map();
+
+// Функция перевода текста с корейского на русский
+async function translateFromKorean(text) {
+    if (!text || text.trim().length === 0) {
+        return text;
+    }
+    
+    // Проверяем кэш
+    if (translationCache.has(text)) {
+        return translationCache.get(text);
+    }
+    
+    // Проверяем, нужно ли переводить (если текст уже на русском/английском, не переводим)
+    const koreanRegex = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+    if (!koreanRegex.test(text)) {
+        translationCache.set(text, text);
+        return text;
+    }
+    
+    try {
+        // Используем Google Translate через бесплатный прокси
+        const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=ru&dt=t&q=${encodeURIComponent(text)}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data[0] && data[0][0] && data[0][0][0]) {
+                const translated = data[0][0][0];
+                translationCache.set(text, translated);
+                return translated;
+            }
+        }
+    } catch (error) {
+        console.warn('Ошибка перевода:', error);
+    }
+    
+    // Если перевод не удался, возвращаем оригинальный текст
+    translationCache.set(text, text);
+    return text;
+}
 let availableFilters = {
     brands: [],
     fuelTypes: [],
@@ -14,13 +56,55 @@ let availableFilters = {
     maxPrice: null
 };
 
-// Курсы валют (относительно USD)
-const exchangeRates = {
+// Курсы валют (относительно USD) - загружаются динамически
+let exchangeRates = {
     USD: 1,
-    RUB: 95,      // 1 USD = 95 RUB
-    EUR: 0.92,    // 1 USD = 0.92 EUR
-    KRW: 1320     // 1 USD = 1320 KRW
+    RUB: 95,      // Значения по умолчанию (будут обновлены)
+    EUR: 0.92,
+    KRW: 1320
 };
+
+// Время последнего обновления курсов
+let exchangeRatesLastUpdate = 0;
+const EXCHANGE_RATES_CACHE_TTL = 60 * 60 * 1000; // 1 час
+
+// Загрузка актуальных курсов валют
+async function loadExchangeRates() {
+    const now = Date.now();
+    
+    // Проверяем кэш (обновляем раз в час)
+    if (exchangeRatesLastUpdate > 0 && (now - exchangeRatesLastUpdate) < EXCHANGE_RATES_CACHE_TTL) {
+        console.log('Используем кэшированные курсы валют');
+        return;
+    }
+    
+    try {
+        // Используем бесплатный API exchangerate-api.com
+        // Альтернатива: можно использовать fixer.io, openexchangerates.org и т.д.
+        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.rates) {
+                // Обновляем курсы для нужных валют
+                exchangeRates.RUB = data.rates.RUB || exchangeRates.RUB;
+                exchangeRates.EUR = data.rates.EUR || exchangeRates.EUR;
+                exchangeRates.KRW = data.rates.KRW || exchangeRates.KRW;
+                
+                exchangeRatesLastUpdate = now;
+                console.log('✅ Курсы валют обновлены:', {
+                    RUB: exchangeRates.RUB,
+                    EUR: exchangeRates.EUR,
+                    KRW: exchangeRates.KRW
+                });
+            }
+        } else {
+            console.warn('Не удалось загрузить курсы валют, используем значения по умолчанию');
+        }
+    } catch (error) {
+        console.warn('Ошибка загрузки курсов валют:', error, 'Используем значения по умолчанию');
+    }
+}
 
 // Символы валют
 const currencySymbols = {
@@ -70,26 +154,27 @@ function getCarCategory(car) {
         return 'deal';
     }
     
-    // 3. Бизнес: премиум модели высокого класса (G90, G80, S-Class, 7 Series, A8, LS), 
-    //    минивэны или дорогие внедорожники (выше 20 млн)
-    const businessModels = ['g90', 'g80', 's-class', '7 series', 'a8', 'ls', 'e-class', '5 series'];
+    // 3. Бизнес: премиум модели высокого класса, минивэны, внедорожники (выше 15 млн),
+    //    или седаны/кроссоверы среднего и высокого класса (15-30 млн)
+    const businessModels = ['g90', 'g80', 's-class', '7 series', 'a8', 'ls', 'e-class', '5 series', 'sonata', 'k5', 'camry', 'accord'];
     const isBusinessModel = businessModels.some(bm => model.includes(bm));
     const businessTypes = ['минивэн', 'minivan'];
     const isBusinessType = businessTypes.some(bt => type.includes(bt));
-    const isExpensiveSUV = (type.includes('внедорожник') || type.includes('suv')) && price > 20000000;
+    const isExpensiveSUV = (type.includes('внедорожник') || type.includes('suv')) && price > 15000000;
+    const isMidRangeCar = price >= 15000000 && price <= 30000000 && (type.includes('седан') || type.includes('sedan') || type.includes('кроссовер') || type.includes('crossover'));
     
-    if (isBusinessModel || isBusinessType || isExpensiveSUV) {
+    if (isBusinessModel || isBusinessType || isExpensiveSUV || isMidRangeCar) {
         return 'business';
     }
     
     // 4. Семейные: большие машины (минивэны, внедорожники, кроссоверы) 
-    //    или недорогие марки Kia/Hyundai (до 25 млн)
+    //    или недорогие марки Kia/Hyundai (до 30 млн), или любые кроссоверы/внедорожники
     const familyTypes = ['минивэн', 'minivan', 'внедорожник', 'suv', 'кроссовер', 'crossover'];
     const isFamilyType = familyTypes.some(ft => type.includes(ft));
     const familyBrands = ['kia', 'hyundai'];
     const isFamilyBrand = familyBrands.some(fb => brand.includes(fb));
     
-    if (isFamilyType || (isFamilyBrand && price < 25000000)) {
+    if (isFamilyType || (isFamilyBrand && price < 30000000)) {
         return 'family';
     }
     
@@ -133,14 +218,19 @@ function initTelegramWebApp() {
 
 // Конвертация цены из USD в выбранную валюту
 function convertPrice(priceUSD, currency) {
+    if (!priceUSD || priceUSD <= 0) return 0;
     return priceUSD * exchangeRates[currency];
 }
 
-// Форматирование цены для отображения
+// Форматирование цены для отображения с округлением до целого числа
 function formatPrice(priceUSD, currency) {
+    if (!priceUSD || priceUSD <= 0) return 'Цена не указана';
+    
     const convertedPrice = convertPrice(priceUSD, currency);
+    // Округляем до целого числа
+    const roundedPrice = Math.round(convertedPrice);
     const symbol = currencySymbols[currency];
-    const formatted = currencyFormats[currency](convertedPrice);
+    const formatted = currencyFormats[currency](roundedPrice);
     return `${symbol}${formatted}`;
 }
 
@@ -621,7 +711,14 @@ function openCarModal(carId) {
         modalPriceElement.classList.remove('car-price-deal');
     }
     
-    document.getElementById('modalCarDescription').textContent = car.description || 'Описание отсутствует';
+    // Переводим описание если оно на корейском
+    const descriptionElement = document.getElementById('modalCarDescription');
+    if (descriptionElement) {
+        descriptionElement.textContent = 'Загрузка...';
+        translateFromKorean(car.description || 'Описание отсутствует').then(translated => {
+            descriptionElement.textContent = translated;
+        });
+    }
     document.getElementById('modalCarMileage').textContent = `${(car.mileage || 0).toLocaleString()} км`;
     document.getElementById('modalCarTransmission').textContent = car.transmission || 'Не указано';
     document.getElementById('modalCarFuel').textContent = car.fuel || 'Не указано';
@@ -1756,6 +1853,12 @@ async function handleContact(carId) {
 function init() {
     // Инициализируем Telegram Web App
     initTelegramWebApp();
+    
+    // Загружаем актуальные курсы валют
+    loadExchangeRates();
+    
+    // Обновляем курсы валют каждый час
+    setInterval(loadExchangeRates, EXCHANGE_RATES_CACHE_TTL);
     
     // Назначаем обработчики категорий
     document.querySelectorAll('.category-btn').forEach(btn => {
